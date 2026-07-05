@@ -1,0 +1,38 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recipient Guard</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="./taskpane.css?v=20260703-1" />
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>Recipient Guard</h1>
+      <p>Proof of concept for New Outlook send-time recipient checks.</p>
+    </header>
+
+    <section class="panel">
+      <div class="field">
+        <span class="label">Mailbox</span>
+        <span id="mailbox">Waiting for Outlook...</span>
+      </div>
+      <div class="field">
+        <span class="label">Internal domain</span>
+        <span id="internalDomain">Waiting for Outlook...</span>
+      </div>
+      <button id="analyzeButton" type="button">Check recipients</button>
+    </section>
+
+    <section class="panel">
+      <h2>Current recipients</h2>
+      <div id="results" class="muted">Open this pane while composing a message.</div>
+    </section>
+  </main>
+
+  <script src="./recipientGuardCore.js?v=20260703-1"></script>
+  <script src="./taskpane.js?v=20260703-1"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+﻿{
+  "name": "recipient-guard-new-outlook-poc",
+  "version": "0.1.0-poc",
+  "private": true,
+  "description": "Recipient Guard proof of concept for New Outlook using Office.js Smart Alerts.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

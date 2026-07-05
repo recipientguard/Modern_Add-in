@@ -1,0 +1,10 @@
+# Local HTTPS dev certificate (private key — never commit)
+.certs/
+
+# Node
+node_modules/
+
+# Logs / OS junk
+*.log
+.DS_Store
+Thumbs.db
