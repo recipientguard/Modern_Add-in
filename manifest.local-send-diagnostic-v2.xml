@@ -4,14 +4,14 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xsi:type="MailApp">
   <Id>db611274-ecac-46af-9944-7d7911812275</Id>
-  <Version>0.2.0.0</Version>
+  <Version>0.2.1.0</Version>
   <ProviderName>Recipient Guard</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Recipient Guard Send Test v2" />
   <Description DefaultValue="Local cached-runtime Smart Alerts manifest for Recipient Guard send-time testing." />
   <IconUrl DefaultValue="https://localhost:3000/assets/icon.jpg" />
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon.jpg" />
-  <SupportUrl DefaultValue="https://localhost:3000/src/taskpane.html?v=20260703-1" />
+  <SupportUrl DefaultValue="https://localhost:3000/src/taskpane.html?v=20260706-1" />
   <AppDomains>
     <AppDomain>https://localhost:3000</AppDomain>
   </AppDomains>
@@ -26,7 +26,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://localhost:3000/src/taskpane.html?v=20260703-1" />
+        <SourceLocation DefaultValue="https://localhost:3000/src/taskpane.html?v=20260706-1" />
         <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -79,9 +79,9 @@
         <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/assets/icon.jpg" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/src/send-test.html?v=20260703-2" />
-        <bt:Url id="Commands.Script.Url" DefaultValue="https://localhost:3000/src/sendTestRuntime.js?v=20260703-2" />
-        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html?v=20260703-1" />
+        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/src/send-test.html?v=20260706-2" />
+        <bt:Url id="Commands.Script.Url" DefaultValue="https://localhost:3000/src/sendTestRuntime.js?v=20260706-2" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html?v=20260706-1" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Group.Label" DefaultValue="RG Send Test v2" />
@@ -146,9 +146,9 @@
           <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/assets/icon.jpg" />
         </bt:Images>
         <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/src/send-test.html?v=20260703-2" />
-          <bt:Url id="Commands.Script.Url" DefaultValue="https://localhost:3000/src/sendTestRuntime.js?v=20260703-2" />
-          <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html?v=20260703-1" />
+          <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/src/send-test.html?v=20260706-2" />
+          <bt:Url id="Commands.Script.Url" DefaultValue="https://localhost:3000/src/sendTestRuntime.js?v=20260706-2" />
+          <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/src/taskpane.html?v=20260706-1" />
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="Group.Label" DefaultValue="RG Send Test v2" />
