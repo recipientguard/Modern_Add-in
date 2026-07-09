@@ -4,7 +4,7 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xsi:type="MailApp">
   <Id>db611274-ecac-46af-9944-7d7911812275</Id>
-  <Version>0.2.1.0</Version>
+  <Version>0.2.2.0</Version>
   <ProviderName>Recipient Guard</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Recipient Guard Send Test v2" />
@@ -39,7 +39,7 @@
 
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Requirements>
-      <bt:Sets DefaultMinVersion="1.12">
+      <bt:Sets DefaultMinVersion="1.15">
         <bt:Set Name="Mailbox" />
       </bt:Sets>
     </Requirements>
@@ -94,14 +94,14 @@
 
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
       <Requirements>
-        <bt:Sets DefaultMinVersion="1.12">
+        <bt:Sets DefaultMinVersion="1.15">
           <bt:Set Name="Mailbox" />
         </bt:Sets>
       </Requirements>
       <Hosts>
         <Host xsi:type="MailHost">
           <Runtimes>
-            <Runtime resid="Commands.Url" lifetime="short">
+            <Runtime resid="Commands.Url">
               <Override type="javascript" resid="Commands.Script.Url" />
             </Runtime>
           </Runtimes>
@@ -132,7 +132,7 @@
             </ExtensionPoint>
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
-                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendDiagnostic" SendMode="Block" />
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendDiagnostic" SendMode="SoftBlock" />
               </LaunchEvents>
               <SourceLocation resid="Commands.Url" />
             </ExtensionPoint>
