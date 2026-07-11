@@ -132,7 +132,7 @@
             </ExtensionPoint>
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
-                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendDiagnostic" SendMode="SoftBlock" />
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendDiagnostic" SendMode="PromptUser" />
               </LaunchEvents>
               <SourceLocation resid="Commands.Url" />
             </ExtensionPoint>
