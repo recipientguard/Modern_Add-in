@@ -144,6 +144,23 @@
     }, []);
   }
 
+  // Generic/role mailboxes (sales@, info@, ...) legitimately recur across many
+  // unrelated domains, so a shared generic prefix is NOT a wrong-recipient
+  // signal. A personal prefix (fynn, john.smith) shared across domains still is.
+  const GENERIC_LOCALPARTS = Object.create(null);
+  [
+    "info", "sales", "support", "admin", "administrator", "contact", "hello",
+    "team", "accounts", "accounting", "billing", "help", "helpdesk", "office",
+    "mail", "enquiries", "inquiries", "marketing", "hr", "jobs", "careers",
+    "noreply", "donotreply", "service", "orders", "bookings", "reception",
+    "finance", "legal", "press", "media", "newsletter", "webmaster",
+    "postmaster", "abuse", "security", "privacy", "feedback", "general"
+  ].forEach((name) => { GENERIC_LOCALPARTS[name] = true; });
+
+  function isGenericLocalPart(localPart) {
+    return Boolean(GENERIC_LOCALPARTS[(localPart || "").replace(/[^a-z0-9]/g, "")]);
+  }
+
   // same_localpart_different_domain: same prefix before "@", different domains.
   function detectSameLocalPart(recipients) {
     const byLocal = Object.create(null); // see note in detectSameDisplayName
@@ -155,7 +172,7 @@
     return Object.keys(byLocal).reduce((risks, key) => {
       const group = byLocal[key];
       const domains = unique(group.map((recipient) => recipient.domain));
-      if (domains.length > 1) {
+      if (domains.length > 1 && !isGenericLocalPart(key)) {
         risks.push({
           ruleId: "same_localpart_different_domain",
           severity: "high",
