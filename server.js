@@ -33,7 +33,12 @@ function assertCertificateExists() {
 function serveFile(req, res) {
   const url = new URL(req.url, "https://localhost:" + port);
   let pathname = decodeURIComponent(url.pathname);
-  console.log(new Date().toISOString() + "  " + req.method + " " + pathname);
+  console.log(new Date().toISOString() + "  " + req.method + " " + pathname + (url.search || ""));
+  if (pathname === "/__log") {
+    res.writeHead(204, { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
+    res.end();
+    return;
+  }
   if (pathname === "/") pathname = "/src/taskpane.html";
 
   const filePath = path.normalize(path.join(root, pathname));

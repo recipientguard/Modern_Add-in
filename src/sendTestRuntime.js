@@ -3,14 +3,17 @@
 
   // Self-contained OnMessageSend runtime. Reads the recipients directly at send
   // time and runs the analysis inline — no dependency on the task pane, no
-  // localStorage handoff (which isn't shared across separate runtimes), and no
-  // "click Check recipients first" step. The engine below is duplicated from
-  // recipientGuardCore.js on purpose; a later build step will bundle the shared
-  // core to remove the copy.
+  // localStorage handoff, no "click Check recipients first" step. The engine
+  // below is duplicated from recipientGuardCore.js on purpose; a later build
+  // step will bundle the shared core to remove the copy.
   //
   // Kept ES2016-safe (no async/await, no ternary operator) so it also loads in
-  // older classic Outlook on Windows, which Microsoft documents as failing on
-  // those constructs in event runtimes.
+  // older classic Outlook on Windows.
+  //
+  // IMPORTANT: on new Outlook / Outlook on the web, Office.actions.associate
+  // only binds the handler when called inside Office.onReady(). Registering only
+  // at top level (as the yo-office template does) succeeds silently but Outlook
+  // never dispatches the event. So we register in BOTH places.
 
   var RECIPIENT_READ_TIMEOUT_MS = 1200;
   var SEND_SAFETY_TIMEOUT_MS = 3000; // fail-open well under Outlook's 5s limit
@@ -272,8 +275,19 @@
     }
   }
 
-  Office.actions.associate("onMessageSendDiagnostic", onMessageSendDiagnostic);
+  function register() {
+    try {
+      Office.actions.associate("onMessageSendDiagnostic", onMessageSendDiagnostic);
+    } catch (e) { /* associate may not be ready yet; onReady path covers it */ }
+  }
+
+  // Register at top level (classic Outlook) AND inside onReady (new Outlook / OWA
+  // only bind here — see note above).
+  register();
   if (typeof globalThis !== "undefined") {
     globalThis.onMessageSendDiagnostic = onMessageSendDiagnostic;
+  }
+  if (typeof Office !== "undefined" && typeof Office.onReady === "function") {
+    Office.onReady(register);
   }
 })();
