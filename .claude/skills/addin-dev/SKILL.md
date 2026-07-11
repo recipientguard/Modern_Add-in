@@ -102,34 +102,53 @@ Beacons are development-only and are normally stripped from `sendTestRuntime.js`
 To re-enable them for a debugging session, follow "Re-enabling beacons" in the
 reference — the `/__log` endpoint in `server.js` is already there to receive them.
 
-## 3. Run the offline analysis tests
+## 3. Editing the analysis engine: build first
+
+The files the manifests load — `src/sendTestRuntime.js` and
+`src/recipientGuardCore.js` — are **GENERATED** (see the banner at the top of
+each). The single source of truth is `src/lib/engine.js` (shared analysis
+engine) plus `src/lib/sendRuntime.part.js` / `src/lib/taskpaneCore.part.js`
+(per-consumer glue). Never edit the generated files directly — the next build
+would silently overwrite the change.
+
+```bash
+npm run build   # regenerates both bundles (scripts/build.js, zero deps)
+```
+
+Edit in `src/lib/`, run the build, then run the tests (next step). The build
+outputs to the exact paths the live manifest already points at, so JS changes
+need no manifest re-upload — just a browser hard-refresh.
+
+## 4. Run the offline analysis tests
 
 The recipient-analysis logic (external / same-display-name /
 same-localpart-different-domain, with condensing) can be tested without Outlook.
 This is the fast way to confirm a logic change before the slow Outlook round-trip.
 
 ```bash
-node ".claude/skills/addin-dev/scripts/test-runtime.js"
+npm test    # = node .claude/skills/addin-dev/scripts/test-runtime.js
 ```
 
-It stubs `Office`, drives the real `onMessageSendDiagnostic` handler across five
-scenarios, and prints PASS/FAIL with a non-zero exit on failure. If you change
-`src/sendTestRuntime.js`, run this first. If you add a rule or change messaging,
-add a matching case to the harness.
+It stubs `Office`, drives the real `onMessageSendDiagnostic` handler (from the
+GENERATED `src/sendTestRuntime.js`, so build first) across the scenarios, and
+prints PASS/FAIL with a non-zero exit on failure. If you change the engine, run
+`npm run build && npm test`. If you add a rule or change messaging, add a
+matching case to the harness.
 
 ## Typical flows
 
 **"Is the add-in working / what's its state?"** → step 1 (ensure server up), then
 step 2a (which manifest is live) + 2b (last beacon trail), then report plainly,
 e.g. *"Server up; manifest v3 live; last send: handler-invoked → completing
-allow=false (blocked, external recipient)."* Finish with step 3 so you can also
+allow=false (blocked, external recipient)."* Finish with step 4 so you can also
 say the offline logic passes.
 
 **"The send hangs / doesn't fire on new Outlook."** → read
 `references/office-js-gotchas.md` first (the `Office.onReady` gotcha is the usual
 culprit), then use the beacon trail (step 2b) to locate exactly where it stops.
 
-**"I changed the analysis rules."** → run step 3 (offline tests) before asking the
+**"I changed the analysis rules."** → edit `src/lib/`, then step 3 (build) and
+step 4 (offline tests) before asking the
 user to test in Outlook.
 
 **"I need to test a manifest change in Outlook."** → see the deployment section of

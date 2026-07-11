@@ -4,7 +4,9 @@
   "private": true,
   "description": "Recipient Guard proof of concept for New Outlook using Office.js Smart Alerts.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node scripts/build.js",
+    "test": "node .claude/skills/addin-dev/scripts/test-runtime.js"
   },
   "engines": {
     "node": ">=18"

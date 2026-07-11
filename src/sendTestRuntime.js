@@ -1,25 +1,25 @@
+// GENERATED FILE — DO NOT EDIT.
+// Built by scripts/build.js from: src/lib/engine.js + src/lib/sendRuntime.part.js
+// Edit those sources, then run `npm run build`.
+
 (function () {
   "use strict";
 
-  // Self-contained OnMessageSend runtime. Reads the recipients directly at send
-  // time and runs the analysis inline — no dependency on the task pane, no
-  // localStorage handoff, no "click Check recipients first" step. The engine
-  // below is duplicated from recipientGuardCore.js on purpose; a later build
-  // step will bundle the shared core to remove the copy.
+  // Recipient Guard — shared analysis engine (SINGLE SOURCE OF TRUTH).
   //
-  // Kept ES2016-safe (no async/await, no ternary operator) so it also loads in
-  // older classic Outlook on Windows.
+  // This file is the one place the recipient-analysis logic lives. The files the
+  // manifests actually load (src/sendTestRuntime.js, src/recipientGuardCore.js)
+  // are GENERATED from it by `npm run build` (scripts/build.js). Edit here, then
+  // rebuild — never edit the generated files.
   //
-  // IMPORTANT: on new Outlook / Outlook on the web, Office.actions.associate
-  // only binds the handler when called inside Office.onReady(). Registering only
-  // at top level (as the yo-office template does) succeeds silently but Outlook
-  // never dispatches the event. So we register in BOTH places.
+  // Style: ES5/ES2016-safe on purpose (var, function, no ternary, no async/await)
+  // because classic Outlook on Windows runs event-based add-in JS in a runtime
+  // that Microsoft documents as failing on newer syntax.
 
   var RECIPIENT_READ_TIMEOUT_MS = 1200;
-  var SEND_SAFETY_TIMEOUT_MS = 3000; // fail-open well under Outlook's 5s limit
   var MAX_EMAILS_PER_RISK = 6;
 
-  // --- helpers ---
+  // --- normalisation helpers (ported from Classic RecipientAnalyzer) ---
 
   function normalizeEmail(value) {
     return (value || "").trim().toLowerCase();
@@ -43,6 +43,8 @@
     return "";
   }
 
+  // Classic Normalize(): lowercase, keep only letters/digits, so punctuation and
+  // spacing differences still match ("Fynn Hodder" -> "fynnhodder").
   function normalizeName(value) {
     return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   }
@@ -53,10 +55,18 @@
     });
   }
 
-  // --- mailbox / recipient reading (inline at send time) ---
+  // --- mailbox / recipient reading ---
+
+  function getMailboxEmail() {
+    return (Office.context.mailbox.userProfile.emailAddress || "").trim().toLowerCase();
+  }
 
   function getInternalDomain() {
-    return getDomain((Office.context.mailbox.userProfile.emailAddress || "").trim());
+    return getDomain(getMailboxEmail());
+  }
+
+  function isExternalRecipient(recipient, internalDomain) {
+    return Boolean(internalDomain) && recipient.domain !== internalDomain;
   }
 
   function getRecipientsAsync(field) {
@@ -119,31 +129,8 @@
   function detectExternal(recipients, internalDomain) {
     var risks = [];
     recipients.forEach(function (recipient) {
-      var isExternal = Boolean(internalDomain) && recipient.domain !== internalDomain;
-      if (isExternal) {
+      if (isExternalRecipient(recipient, internalDomain)) {
         risks.push({ ruleId: "external_domain", severity: "medium", emails: [recipient.email] });
-      }
-    });
-    return risks;
-  }
-
-  function detectSameDisplayName(recipients) {
-    // Object.create(null): a plain {} would let a display name/prefix of
-    // "constructor" or "__proto__" collide with inherited prototype members,
-    // throwing and silently failing the check open.
-    var byName = Object.create(null);
-    recipients.forEach(function (recipient) {
-      if (!recipient.normalizedName) return;
-      if (!byName[recipient.normalizedName]) byName[recipient.normalizedName] = [];
-      byName[recipient.normalizedName].push(recipient);
-    });
-
-    var risks = [];
-    Object.keys(byName).forEach(function (key) {
-      var group = byName[key];
-      var emails = unique(group.map(function (r) { return r.email; }));
-      if (emails.length > 1) {
-        risks.push({ ruleId: "same_display_name", severity: "high", displayName: group[0].name, emails: emails });
       }
     });
     return risks;
@@ -166,6 +153,30 @@
     return Boolean(GENERIC_LOCALPARTS[(localPart || "").replace(/[^a-z0-9]/g, "")]);
   }
 
+  // same_display_name: two recipients share a display name but different addresses.
+  function detectSameDisplayName(recipients) {
+    // Object.create(null): a plain {} would let a display name/prefix of
+    // "constructor" or "__proto__" collide with inherited prototype members,
+    // throwing and silently failing the check open.
+    var byName = Object.create(null);
+    recipients.forEach(function (recipient) {
+      if (!recipient.normalizedName) return;
+      if (!byName[recipient.normalizedName]) byName[recipient.normalizedName] = [];
+      byName[recipient.normalizedName].push(recipient);
+    });
+
+    var risks = [];
+    Object.keys(byName).forEach(function (key) {
+      var group = byName[key];
+      var emails = unique(group.map(function (r) { return r.email; }));
+      if (emails.length > 1) {
+        risks.push({ ruleId: "same_display_name", severity: "high", displayName: group[0].name, emails: emails });
+      }
+    });
+    return risks;
+  }
+
+  // same_localpart_different_domain: same prefix before "@", different domains.
   function detectSameLocalPart(recipients) {
     var byLocal = Object.create(null); // see note in detectSameDisplayName
     recipients.forEach(function (recipient) {
@@ -194,8 +205,10 @@
     return risk.ruleId === "same_display_name" || risk.ruleId === "same_localpart_different_domain";
   }
 
+  // Condense (ported from RiskSignalOrdering.Condense): if an address is already
+  // implicated by a strong signal, don't also report it as merely external.
   function condense(risks) {
-    var strongEmails = {};
+    var strongEmails = Object.create(null);
     risks.filter(isStrong).forEach(function (risk) {
       risk.emails.forEach(function (email) { strongEmails[email] = true; });
     });
@@ -212,7 +225,7 @@
     return condense(risks);
   }
 
-  // --- message ---
+  // --- Smart Alert / task-pane message ---
 
   function listEmails(lines, emails) {
     emails.slice(0, MAX_EMAILS_PER_RISK).forEach(function (email) { lines.push("  " + email); });
@@ -262,7 +275,11 @@
     return lines.join("\n");
   }
 
-  // --- send event handler ---
+  // Send-event handler (OnMessageSend). Combined with engine.js by the build
+  // into src/sendTestRuntime.js. Reads the recipients inline at send time and
+  // always calls event.completed — a send must never be left hanging.
+
+  var SEND_SAFETY_TIMEOUT_MS = 3000; // fail-open well under Outlook's 5s limit
 
   function onMessageSendDiagnostic(event) {
     var settled = false;
@@ -295,19 +312,21 @@
     }
   }
 
-  function register() {
+  function registerSendHandler() {
     try {
       Office.actions.associate("onMessageSendDiagnostic", onMessageSendDiagnostic);
     } catch (e) { /* associate may not be ready yet; onReady path covers it */ }
   }
 
-  // Register at top level (classic Outlook) AND inside onReady (new Outlook / OWA
-  // only bind here — see note above).
-  register();
+  // IMPORTANT: on new Outlook / Outlook on the web, Office.actions.associate only
+  // binds the handler when called inside Office.onReady(). Registering only at
+  // top level (as the yo-office template does) succeeds silently but Outlook
+  // never dispatches the event. So we register in BOTH places.
+  registerSendHandler();
   if (typeof globalThis !== "undefined") {
     globalThis.onMessageSendDiagnostic = onMessageSendDiagnostic;
   }
   if (typeof Office !== "undefined" && typeof Office.onReady === "function") {
-    Office.onReady(register);
+    Office.onReady(registerSendHandler);
   }
 })();
