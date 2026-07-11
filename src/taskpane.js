@@ -1,5 +1,3 @@
-const ANALYSIS_CACHE_KEY = "recipientGuard.latestComposeAnalysis.v1";
-
 Office.onReady(() => {
   const button = document.getElementById("analyzeButton");
   button.addEventListener("click", renderAnalysis);
@@ -11,27 +9,6 @@ Office.onReady(() => {
 function renderMailbox() {
   document.getElementById("mailbox").textContent = window.RecipientGuardPoc.getMailboxEmail() || "Unknown";
   document.getElementById("internalDomain").textContent = window.RecipientGuardPoc.getInternalDomain() || "Unknown";
-}
-
-function cacheAnalysis(analysis) {
-  try {
-    localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({
-      createdAt: Date.now(),
-      mailboxEmail: analysis.mailboxEmail,
-      internalDomain: analysis.internalDomain,
-      recipients: analysis.recipients,
-      flagged: analysis.flagged,
-      hasWarnings: analysis.hasWarnings
-    }));
-  } catch (error) {
-  }
-}
-
-function clearCachedAnalysis() {
-  try {
-    localStorage.removeItem(ANALYSIS_CACHE_KEY);
-  } catch (error) {
-  }
 }
 
 function registerRecipientChangeHandler() {
@@ -55,7 +32,6 @@ async function renderAnalysis() {
 
   try {
     const analysis = await window.RecipientGuardPoc.analyzeCurrentMessage();
-    cacheAnalysis(analysis);
 
     if (analysis.recipients.length === 0) {
       results.textContent = "No resolved recipients found yet.";
@@ -63,11 +39,34 @@ async function renderAnalysis() {
       return;
     }
 
+    const risks = analysis.risks || [];
     const summary = document.createElement("div");
     summary.className = analysis.hasWarnings ? "check-summary warning" : "check-summary clear";
     summary.textContent = analysis.hasWarnings
-      ? analysis.flagged.length + (analysis.flagged.length === 1 ? " external recipient found" : " external recipients found")
-      : "No external recipients found";
+      ? risks.length + (risks.length === 1 ? " potential issue found" : " potential issues found")
+      : "No recipient issues found";
+
+    const warnings = document.createElement("div");
+    warnings.className = "recipient-list";
+    risks.forEach((risk) => {
+      const row = document.createElement("div");
+      row.className = "recipient external";
+      const title = document.createElement("strong");
+      if (risk.ruleId === "same_display_name") {
+        title.textContent = 'Same name, different addresses: "' + (risk.displayName || "").trim() + '"';
+      } else if (risk.ruleId === "same_localpart_different_domain") {
+        title.textContent = 'Same prefix, different domains: "' + risk.localPart + '"';
+      } else {
+        title.textContent = "External recipient";
+      }
+      row.appendChild(title);
+
+      const meta = document.createElement("div");
+      meta.className = "muted";
+      meta.textContent = (risk.emails || []).join(", ");
+      row.appendChild(meta);
+      warnings.appendChild(row);
+    });
 
     const list = document.createElement("div");
     list.className = "recipient-list";
@@ -98,11 +97,13 @@ async function renderAnalysis() {
     results.innerHTML = "";
     results.className = "";
     results.appendChild(summary);
+    if (risks.length > 0) {
+      results.appendChild(warnings);
+    }
     results.appendChild(list);
   } catch (error) {
     results.textContent = "Recipient Guard could not read recipients in this compose window.";
     results.className = "muted";
-    clearCachedAnalysis();
   } finally {
     button.disabled = false;
     button.textContent = "Check recipients";

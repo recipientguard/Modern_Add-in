@@ -8,6 +8,14 @@ const pfxPath = path.join(certDir, "localhost.pfx");
 const passphrase = process.env.RECIPIENT_GUARD_DEV_CERT_PASSWORD || "recipientguard";
 const port = Number(process.env.PORT || 3000);
 
+// Tee every request line to a fixed log file so tooling (the addin-dev skill)
+// can read it without knowing the background process's stdout path.
+const requestLogPath = path.join(root, "dev-requests.log");
+function logRequest(line) {
+  console.log(line);
+  try { fs.appendFileSync(requestLogPath, line + "\n"); } catch (e) { /* non-fatal */ }
+}
+
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
@@ -33,6 +41,12 @@ function assertCertificateExists() {
 function serveFile(req, res) {
   const url = new URL(req.url, "https://localhost:" + port);
   let pathname = decodeURIComponent(url.pathname);
+  logRequest(new Date().toISOString() + "  " + req.method + " " + pathname + (url.search || ""));
+  if (pathname === "/__log") {
+    res.writeHead(204, { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" });
+    res.end();
+    return;
+  }
   if (pathname === "/") pathname = "/src/taskpane.html";
 
   const filePath = path.normalize(path.join(root, pathname));
