@@ -120,7 +120,10 @@
 
   // same_display_name: two recipients share a display name but use different addresses.
   function detectSameDisplayName(recipients) {
-    const byName = {};
+    // Object.create(null): a plain {} would let a display name/prefix of
+    // "constructor" or "__proto__" collide with inherited prototype members,
+    // throwing and silently failing the check open.
+    const byName = Object.create(null);
     recipients.forEach((recipient) => {
       if (!recipient.normalizedName) return;
       (byName[recipient.normalizedName] = byName[recipient.normalizedName] || []).push(recipient);
@@ -143,7 +146,7 @@
 
   // same_localpart_different_domain: same prefix before "@", different domains.
   function detectSameLocalPart(recipients) {
-    const byLocal = {};
+    const byLocal = Object.create(null); // see note in detectSameDisplayName
     recipients.forEach((recipient) => {
       if (!recipient.localPart || !recipient.domain) return;
       (byLocal[recipient.localPart] = byLocal[recipient.localPart] || []).push(recipient);
@@ -201,8 +204,6 @@
       internalDomain,
       recipients,
       risks,
-      // Kept for the task-pane's per-recipient external badges.
-      flagged: recipients.filter((recipient) => recipient.isExternal),
       hasWarnings: risks.length > 0
     };
   }

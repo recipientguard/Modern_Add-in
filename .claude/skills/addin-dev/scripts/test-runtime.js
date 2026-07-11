@@ -57,6 +57,9 @@ Promise.resolve()
   .then(function () { return run("wrong-person name+prefix clash -> block", { to: [r("Fynn Hodder", "fynn@iteam.je"), r("Fynn Hodder", "fynn@gmail.com")] }, false, "possible wrong recipient"); })
   .then(function () { return run("external only -> block", { to: [r("Bob", "bob@client.com")] }, false, "external recipient"); })
   .then(function () { return run("same prefix, diff vendor domains -> block", { to: [r("Jon A", "jon.doe@acme.com")], cc: [r("Jon B", "jon.doe@acme-invoices.com")] }, false, "Same address prefix"); })
+  // Regression: a prefix/display-name equal to an Object.prototype key must not
+  // throw and fail the guard open (fixed by Object.create(null) grouping maps).
+  .then(function () { return run("prototype-key prefix (constructor) -> block", { to: [r("A", "constructor@a.com")], cc: [r("B", "constructor@b.com")] }, false, "Same address prefix"); })
   .then(function () { return run("no recipients -> allow", {}, true); })
   .then(function () {
     console.log("");

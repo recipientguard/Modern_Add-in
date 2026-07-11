@@ -1,5 +1,3 @@
-const ANALYSIS_CACHE_KEY = "recipientGuard.latestComposeAnalysis.v1";
-
 Office.onReady(() => {
   const button = document.getElementById("analyzeButton");
   button.addEventListener("click", renderAnalysis);
@@ -11,28 +9,6 @@ Office.onReady(() => {
 function renderMailbox() {
   document.getElementById("mailbox").textContent = window.RecipientGuardPoc.getMailboxEmail() || "Unknown";
   document.getElementById("internalDomain").textContent = window.RecipientGuardPoc.getInternalDomain() || "Unknown";
-}
-
-function cacheAnalysis(analysis) {
-  try {
-    localStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({
-      createdAt: Date.now(),
-      mailboxEmail: analysis.mailboxEmail,
-      internalDomain: analysis.internalDomain,
-      recipients: analysis.recipients,
-      flagged: analysis.flagged,
-      risks: analysis.risks,
-      hasWarnings: analysis.hasWarnings
-    }));
-  } catch (error) {
-  }
-}
-
-function clearCachedAnalysis() {
-  try {
-    localStorage.removeItem(ANALYSIS_CACHE_KEY);
-  } catch (error) {
-  }
 }
 
 function registerRecipientChangeHandler() {
@@ -56,7 +32,6 @@ async function renderAnalysis() {
 
   try {
     const analysis = await window.RecipientGuardPoc.analyzeCurrentMessage();
-    cacheAnalysis(analysis);
 
     if (analysis.recipients.length === 0) {
       results.textContent = "No resolved recipients found yet.";
@@ -129,7 +104,6 @@ async function renderAnalysis() {
   } catch (error) {
     results.textContent = "Recipient Guard could not read recipients in this compose window.";
     results.className = "muted";
-    clearCachedAnalysis();
   } finally {
     button.disabled = false;
     button.textContent = "Check recipients";

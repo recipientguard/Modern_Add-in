@@ -128,7 +128,10 @@
   }
 
   function detectSameDisplayName(recipients) {
-    var byName = {};
+    // Object.create(null): a plain {} would let a display name/prefix of
+    // "constructor" or "__proto__" collide with inherited prototype members,
+    // throwing and silently failing the check open.
+    var byName = Object.create(null);
     recipients.forEach(function (recipient) {
       if (!recipient.normalizedName) return;
       if (!byName[recipient.normalizedName]) byName[recipient.normalizedName] = [];
@@ -147,7 +150,7 @@
   }
 
   function detectSameLocalPart(recipients) {
-    var byLocal = {};
+    var byLocal = Object.create(null); // see note in detectSameDisplayName
     recipients.forEach(function (recipient) {
       if (!recipient.localPart || !recipient.domain) return;
       if (!byLocal[recipient.localPart]) byLocal[recipient.localPart] = [];
