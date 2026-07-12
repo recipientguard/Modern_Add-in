@@ -81,14 +81,14 @@ Promise.resolve()
   .then(function () { return run("clean internal send -> allow", { to: [r("Alice", "alice@iteam.je")] }, true); })
   .then(function () { return run("wrong-person name+prefix clash -> block", { to: [r("Fynn Hodder", "fynn@iteam.je"), r("Fynn Hodder", "fynn@gmail.com")] }, false, "possible wrong recipient"); })
   .then(function () { return run("external only -> block", { to: [r("Bob", "bob@client.com")] }, false, "external recipient"); })
-  .then(function () { return run("personal prefix across domains -> block (prefix clash)", { to: [r("Jon A", "jon.doe@acme.com")], cc: [r("Jon B", "jon.doe@acme-invoices.com")] }, false, "Same address prefix"); })
+  .then(function () { return run("personal prefix across domains -> block (prefix clash)", { to: [r("Jon A", "jon.doe@acme.com")], cc: [r("Jon B", "jon.doe@acme-invoices.com")] }, false, "Same username"); })
   // Generic mailbox (sales@) across two real vendors is a legit send, not a
-  // wrong-recipient clash: it should NOT produce a "Same address prefix" risk
+  // wrong-recipient clash: it should NOT produce a "Same username" risk
   // (it's still flagged as external, which is correct).
-  .then(function () { return run("generic prefix (sales@) across vendors -> not a prefix clash", { to: [r("Sales A", "sales@acme.com")], cc: [r("Sales B", "sales@partner.com")] }, false, "external recipient", "Same address prefix"); })
+  .then(function () { return run("generic prefix (sales@) across vendors -> not a prefix clash", { to: [r("Sales A", "sales@acme.com")], cc: [r("Sales B", "sales@partner.com")] }, false, "external recipient", "Same username"); })
   // Regression: a prefix/display-name equal to an Object.prototype key must not
   // throw and fail the guard open (fixed by Object.create(null) grouping maps).
-  .then(function () { return run("prototype-key prefix (constructor) -> block", { to: [r("A", "constructor@a.com")], cc: [r("B", "constructor@b.com")] }, false, "Same address prefix"); })
+  .then(function () { return run("prototype-key prefix (constructor) -> block", { to: [r("A", "constructor@a.com")], cc: [r("B", "constructor@b.com")] }, false, "Same username"); })
   .then(function () { return run("no recipients -> allow", {}, true); })
   // known-identity (history) checks — the single-wrong-recipient case
   .then(function () {

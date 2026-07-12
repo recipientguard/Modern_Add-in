@@ -347,11 +347,11 @@
       r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
         var why;
         if (alt.byName && alt.byPrefix) {
-          why = "(same display name & email name)";
+          why = "(same display name & username)";
         } else if (alt.byName) {
           why = "(same display name)";
         } else {
-          why = "(same email name)";
+          why = "(same username)";
         }
         lines.push("  " + alt.email + "  " + why);
       });
@@ -362,13 +362,13 @@
     });
 
     risks.filter(function (r) { return r.ruleId === "same_display_name"; }).forEach(function (r) {
-      lines.push('Recipients share the name "' + (r.displayName || "").trim() + '" but use different addresses:');
+      lines.push('Recipients share the display name "' + (r.displayName || "").trim() + '" but use different addresses:');
       listEmails(lines, r.emails);
       lines.push("");
     });
 
     risks.filter(function (r) { return r.ruleId === "same_localpart_different_domain"; }).forEach(function (r) {
-      lines.push('Same address prefix "' + r.localPart + '" on different domains:');
+      lines.push('Same username "' + r.localPart + '" on different domains:');
       listEmails(lines, r.emails);
       lines.push("");
     });

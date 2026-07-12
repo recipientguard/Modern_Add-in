@@ -123,14 +123,14 @@ async function renderAnalysis() {
       if (risk.ruleId === "known_alternative") {
         title.textContent = "Possibly wrong recipient: " + risk.emails[0];
         metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
-          const why = a.byName && a.byPrefix ? "same display name & email name"
-            : a.byName ? "same display name" : "same email name";
+          const why = a.byName && a.byPrefix ? "same display name & username"
+            : a.byName ? "same display name" : "same username";
           return a.email + " (" + why + ")";
         }).join(", ");
       } else if (risk.ruleId === "same_display_name") {
         title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
       } else if (risk.ruleId === "same_localpart_different_domain") {
-        title.textContent = 'Same email name, different domains: "' + risk.localPart + '"';
+        title.textContent = 'Same username, different domains: "' + risk.localPart + '"';
       } else {
         title.textContent = "External recipient";
       }
