@@ -4,7 +4,67 @@ Office.onReady(() => {
   renderMailbox();
   renderAnalysis();
   registerRecipientChangeHandler();
+
+  const peopleButton = document.getElementById("loadPeopleButton");
+  if (peopleButton) peopleButton.addEventListener("click", loadKnownPeople);
 });
+
+// A1 proof: acquire a Graph token via NAA and list the user's frequently-
+// contacted people. This is the known-identity source we'll compare against.
+async function loadKnownPeople() {
+  const out = document.getElementById("peopleResults");
+  const button = document.getElementById("loadPeopleButton");
+
+  if (!window.RGNaa) {
+    out.textContent = "Auth module not loaded.";
+    return;
+  }
+  if (!window.RGNaa.isNaaSupported()) {
+    out.textContent = "This Outlook version doesn't support the sign-in method needed (NAA). Try new Outlook or Outlook on the web.";
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Loading...";
+  out.textContent = "Getting your contacts (you may be asked to grant permission)...";
+  out.className = "muted";
+
+  try {
+    const people = await window.RGNaa.getKnownPeople(25);
+    if (people.length === 0) {
+      out.textContent = "Connected, but no relevant people were returned.";
+      return;
+    }
+    out.innerHTML = "";
+    out.className = "";
+    const heading = document.createElement("div");
+    heading.className = "check-summary clear";
+    heading.textContent = "Smart detection on — " + people.length + " known contacts loaded";
+    out.appendChild(heading);
+
+    const list = document.createElement("div");
+    list.className = "recipient-list";
+    people.slice(0, 15).forEach((person) => {
+      const row = document.createElement("div");
+      row.className = "recipient";
+      const title = document.createElement("strong");
+      title.textContent = person.displayName || person.email;
+      row.appendChild(title);
+      const meta = document.createElement("div");
+      meta.className = "muted";
+      meta.textContent = person.email;
+      row.appendChild(meta);
+      list.appendChild(row);
+    });
+    out.appendChild(list);
+  } catch (error) {
+    out.textContent = "Couldn't load contacts: " + (error && error.message ? error.message : String(error));
+    out.className = "muted";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Refresh contacts";
+  }
+}
 
 function renderMailbox() {
   document.getElementById("mailbox").textContent = window.RecipientGuardPoc.getMailboxEmail() || "Unknown";

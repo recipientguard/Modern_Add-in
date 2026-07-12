@@ -1,14 +1,21 @@
-﻿{
+{
   "name": "recipient-guard-new-outlook-poc",
   "version": "0.1.0-poc",
   "private": true,
   "description": "Recipient Guard proof of concept for New Outlook using Office.js Smart Alerts.",
   "scripts": {
     "start": "node server.js",
-    "build": "node scripts/build.js",
+    "build": "node scripts/build.js && npm run build:naa",
+    "build:naa": "esbuild src/lib/naa.js --bundle --format=iife --target=es2017 --outfile=src/naa.bundle.js",
     "test": "node .claude/skills/addin-dev/scripts/test-runtime.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^5.17.0"
   }
 }
