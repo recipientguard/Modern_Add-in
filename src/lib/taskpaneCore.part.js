@@ -13,7 +13,7 @@ function analyzeCurrentMessage() {
       recipient.isExternal = isExternalRecipient(recipient, internalDomain);
     });
 
-    var risks = computeRisks(recipients, internalDomain);
+    var risks = computeRisks(recipients, internalDomain, readKnownIdentities());
     return {
       mailboxEmail: mailboxEmail,
       internalDomain: internalDomain,
@@ -31,6 +31,10 @@ globalScope.RecipientGuardPoc = {
   computeRisks: computeRisks,
   getInternalDomain: getInternalDomain,
   getMailboxEmail: getMailboxEmail,
+  // known-identity store (Graph -> RoamingSettings)
+  toKnownRecord: toKnownRecord,
+  readKnownIdentities: readKnownIdentities,
+  writeKnownIdentities: writeKnownIdentities,
   // exposed for reuse/testing
   normalizeName: normalizeName,
   getLocalPart: getLocalPart,

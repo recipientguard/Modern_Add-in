@@ -30,11 +30,18 @@ async function loadKnownPeople() {
   out.className = "muted";
 
   try {
-    const people = await window.RGNaa.getKnownPeople(25);
+    const people = await window.RGNaa.getKnownPeople(50);
     if (people.length === 0) {
       out.textContent = "Connected, but no relevant people were returned.";
       return;
     }
+
+    // Cache a compact known-identity list to RoamingSettings so the send-event
+    // runtime can read it (cross-runtime; localStorage can't do this).
+    const RG = window.RecipientGuardPoc;
+    const records = people.map(RG.toKnownRecord);
+    await RG.writeKnownIdentities(records);
+
     out.innerHTML = "";
     out.className = "";
     const heading = document.createElement("div");
@@ -112,10 +119,18 @@ async function renderAnalysis() {
       const row = document.createElement("div");
       row.className = "recipient external";
       const title = document.createElement("strong");
-      if (risk.ruleId === "same_display_name") {
-        title.textContent = 'Same name, different addresses: "' + (risk.displayName || "").trim() + '"';
+      let metaText = (risk.emails || []).join(", ");
+      if (risk.ruleId === "known_alternative") {
+        title.textContent = "Possibly wrong recipient: " + risk.emails[0];
+        metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
+          const why = a.byName && a.byPrefix ? "same display name & username"
+            : a.byName ? "same display name" : "same username";
+          return a.email + " (" + why + ")";
+        }).join(", ");
+      } else if (risk.ruleId === "same_display_name") {
+        title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
       } else if (risk.ruleId === "same_localpart_different_domain") {
-        title.textContent = 'Same prefix, different domains: "' + risk.localPart + '"';
+        title.textContent = 'Same username, different domains: "' + risk.localPart + '"';
       } else {
         title.textContent = "External recipient";
       }
@@ -123,7 +138,7 @@ async function renderAnalysis() {
 
       const meta = document.createElement("div");
       meta.className = "muted";
-      meta.textContent = (risk.emails || []).join(", ");
+      meta.textContent = metaText;
       row.appendChild(meta);
       warnings.appendChild(row);
     });

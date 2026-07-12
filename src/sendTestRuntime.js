@@ -201,8 +201,97 @@
     return risks;
   }
 
+  // --- known-identity store (history-aware detection, from Graph /me/people) ---
+  //
+  // The task pane fetches the user's frequently-contacted people and caches a
+  // compact list in RoamingSettings (per-mailbox, readable from the send-event
+  // runtime). The send handler and the pane both read it and compare recipients
+  // against it — this is what catches a SINGLE wrong recipient (no second
+  // recipient to compare against within the email).
+
+  var KNOWN_IDENTITIES_KEY = "recipientGuard.knownIdentities.v1";
+
+  // Compact record: n=normalizedName, e=email, l=localPart, d=domain, name=display.
+  function toKnownRecord(person) {
+    var email = normalizeEmail(person.email || person.emailAddress);
+    return {
+      name: person.displayName || person.name || "",
+      e: email,
+      n: normalizeName(person.displayName || person.name),
+      l: getLocalPart(email),
+      d: getDomain(email)
+    };
+  }
+
+  function readKnownIdentities() {
+    try {
+      var rs = Office.context.roamingSettings;
+      if (!rs || typeof rs.get !== "function") return [];
+      var stored = rs.get(KNOWN_IDENTITIES_KEY);
+      return (stored && stored.people) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeKnownIdentities(records) {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        rs.set(KNOWN_IDENTITIES_KEY, { at: Date.now(), people: records });
+        rs.saveAsync(function () { resolve(true); });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  // known_display_name / known_localpart: a recipient's name or prefix matches
+  // someone you usually email at a DIFFERENT address. By design we flag this even
+  // when the recipient's own address is also a known contact — if a name/prefix
+  // resolves to more than one address you use, we surface it and let the user
+  // decide (better a dismissed warning than a wrong pick). A known identity with
+  // the exact same email as the recipient is still excluded (that's not an
+  // alternative).
+  function detectKnownAlternatives(recipients, knownIdentities) {
+    var risks = [];
+    if (!knownIdentities || knownIdentities.length === 0) return risks;
+
+    recipients.forEach(function (recipient) {
+      // Collect ALL known alternatives for this recipient — matched by display
+      // name and/or email name — de-duplicated, tracking WHY each one matched so
+      // the message can annotate each alternative individually.
+      var altReasons = Object.create(null); // email -> { name: bool, prefix: bool }
+
+      knownIdentities.forEach(function (k) {
+        if (k.e === recipient.email) return; // same address: not an alternative
+        var byName = Boolean(recipient.normalizedName && k.n && k.n === recipient.normalizedName);
+        var byPrefix = Boolean(recipient.localPart && recipient.domain && k.l && k.l === recipient.localPart && k.d && k.d !== recipient.domain);
+        if (!byName && !byPrefix) return;
+        if (!altReasons[k.e]) altReasons[k.e] = { name: false, prefix: false };
+        if (byName) altReasons[k.e].name = true;
+        if (byPrefix) altReasons[k.e].prefix = true;
+      });
+
+      var alternatives = Object.keys(altReasons).map(function (email) {
+        return { email: email, byName: altReasons[email].name, byPrefix: altReasons[email].prefix };
+      });
+      if (alternatives.length > 0) {
+        risks.push({
+          ruleId: "known_alternative",
+          severity: "high",
+          emails: [recipient.email],
+          alternatives: alternatives
+        });
+      }
+    });
+    return risks;
+  }
+
   function isStrong(risk) {
-    return risk.ruleId === "same_display_name" || risk.ruleId === "same_localpart_different_domain";
+    return risk.ruleId === "same_display_name" ||
+      risk.ruleId === "same_localpart_different_domain" ||
+      risk.ruleId === "known_alternative";
   }
 
   // Condense (ported from RiskSignalOrdering.Condense): if an address is already
@@ -218,9 +307,10 @@
     });
   }
 
-  function computeRisks(recipients, internalDomain) {
+  function computeRisks(recipients, internalDomain, knownIdentities) {
     var risks = detectSameDisplayName(recipients)
       .concat(detectSameLocalPart(recipients))
+      .concat(detectKnownAlternatives(recipients, knownIdentities || []))
       .concat(detectExternal(recipients, internalDomain));
     return condense(risks);
   }
@@ -237,9 +327,12 @@
   function buildAlertMessage(risks) {
     if (!risks || risks.length === 0) return "";
 
+    var hasKnown = risks.some(function (r) { return r.ruleId === "known_alternative"; });
     var hasStrong = risks.some(isStrong);
     var header;
-    if (hasStrong) {
+    if (hasKnown) {
+      header = "Recipient Guard found a recipient that may have been picked incorrectly from AutoComplete.";
+    } else if (hasStrong) {
       header = "Recipient Guard found a possible wrong recipient.";
     } else if (risks.length === 1) {
       header = "Recipient Guard found 1 external recipient.";
@@ -248,14 +341,34 @@
     }
     var lines = [header, ""];
 
+    risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
+      lines.push("Sending to: " + r.emails[0]);
+      lines.push("You usually use:");
+      r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
+        var why;
+        if (alt.byName && alt.byPrefix) {
+          why = "(same display name & username)";
+        } else if (alt.byName) {
+          why = "(same display name)";
+        } else {
+          why = "(same username)";
+        }
+        lines.push("  " + alt.email + "  " + why);
+      });
+      if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
+        lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");
+      }
+      lines.push("");
+    });
+
     risks.filter(function (r) { return r.ruleId === "same_display_name"; }).forEach(function (r) {
-      lines.push('Recipients share the name "' + (r.displayName || "").trim() + '" but use different addresses:');
+      lines.push('Recipients share the display name "' + (r.displayName || "").trim() + '" but use different addresses:');
       listEmails(lines, r.emails);
       lines.push("");
     });
 
     risks.filter(function (r) { return r.ruleId === "same_localpart_different_domain"; }).forEach(function (r) {
-      lines.push('Same address prefix "' + r.localPart + '" on different domains:');
+      lines.push('Same username "' + r.localPart + '" on different domains:');
       listEmails(lines, r.emails);
       lines.push("");
     });
@@ -294,9 +407,10 @@
 
     try {
       var internalDomain = getInternalDomain();
+      var knownIdentities = readKnownIdentities();
       getAllRecipients().then(function (recipients) {
         clearTimeout(safety);
-        var risks = computeRisks(recipients, internalDomain);
+        var risks = computeRisks(recipients, internalDomain, knownIdentities);
         if (risks.length === 0) {
           finish({ allowEvent: true });
         } else {
