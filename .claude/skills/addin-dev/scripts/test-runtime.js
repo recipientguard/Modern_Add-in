@@ -92,15 +92,15 @@ Promise.resolve()
   .then(function () { return run("no recipients -> allow", {}, true); })
   // known-identity (history) checks — the single-wrong-recipient case
   .then(function () {
-    return run("single wrong recipient vs known -> block (you usually email)",
-      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "usually email", null,
+    return run("single wrong recipient vs known -> block (you usually reach)",
+      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "usually reach", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     // Product decision: flag even when the recipient's own address is known, if
     // the prefix/name resolves to ANOTHER known address.
-    return run("known recipient with another known same-prefix -> flags (you usually email)",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "usually email", null,
+    return run("known recipient with another known same-prefix -> flags (you usually reach)",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "usually reach", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com"), knownRec("Fynn Hodder", "fynn.hodder@iteam.je")]);
   })
   .then(function () {

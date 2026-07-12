@@ -258,34 +258,36 @@
     if (!knownIdentities || knownIdentities.length === 0) return risks;
 
     recipients.forEach(function (recipient) {
-      if (recipient.normalizedName) {
-        var nameAlts = knownIdentities.filter(function (k) {
-          return k.n && k.n === recipient.normalizedName && k.e !== recipient.email;
-        });
-        if (nameAlts.length > 0) {
-          risks.push({
-            ruleId: "known_display_name",
-            severity: "high",
-            displayName: recipient.name,
-            emails: [recipient.email],
-            knownEmails: unique(nameAlts.map(function (k) { return k.e; }))
-          });
-        }
-      }
+      // Collect ALL known alternatives for this recipient — matched by display
+      // name OR address prefix — into one de-duplicated set, so the user sees a
+      // single finding with one list rather than an overlapping name/prefix pair.
+      var altEmails = Object.create(null);
+      var matchedByName = false;
+      var matchedByPrefix = false;
 
-      if (recipient.localPart && recipient.domain) {
-        var localAlts = knownIdentities.filter(function (k) {
-          return k.l && k.l === recipient.localPart && k.d && k.d !== recipient.domain;
-        });
-        if (localAlts.length > 0) {
-          risks.push({
-            ruleId: "known_localpart",
-            severity: "high",
-            localPart: recipient.localPart,
-            emails: [recipient.email],
-            knownEmails: unique(localAlts.map(function (k) { return k.e; }))
-          });
+      knownIdentities.forEach(function (k) {
+        if (k.e === recipient.email) return; // same address: not an alternative
+        if (recipient.normalizedName && k.n && k.n === recipient.normalizedName) {
+          altEmails[k.e] = true;
+          matchedByName = true;
         }
+        if (recipient.localPart && recipient.domain && k.l && k.l === recipient.localPart && k.d && k.d !== recipient.domain) {
+          altEmails[k.e] = true;
+          matchedByPrefix = true;
+        }
+      });
+
+      var emails = Object.keys(altEmails);
+      if (emails.length > 0) {
+        risks.push({
+          ruleId: "known_alternative",
+          severity: "high",
+          emails: [recipient.email],
+          displayName: recipient.name,
+          matchedByName: matchedByName,
+          matchedByPrefix: matchedByPrefix,
+          knownEmails: emails
+        });
       }
     });
     return risks;
@@ -294,8 +296,7 @@
   function isStrong(risk) {
     return risk.ruleId === "same_display_name" ||
       risk.ruleId === "same_localpart_different_domain" ||
-      risk.ruleId === "known_display_name" ||
-      risk.ruleId === "known_localpart";
+      risk.ruleId === "known_alternative";
   }
 
   // Condense (ported from RiskSignalOrdering.Condense): if an address is already
@@ -342,14 +343,10 @@
     }
     var lines = [header, ""];
 
-    risks.filter(function (r) { return r.ruleId === "known_localpart"; }).forEach(function (r) {
-      lines.push("Sending to " + r.emails[0] + ", but you usually email \"" + r.localPart + "\" at:");
-      listEmails(lines, r.knownEmails);
-      lines.push("");
-    });
-
-    risks.filter(function (r) { return r.ruleId === "known_display_name"; }).forEach(function (r) {
-      lines.push("Sending to " + r.emails[0] + ", but you usually reach \"" + (r.displayName || "").trim() + "\" at:");
+    risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
+      var who = (r.displayName || "").trim();
+      lines.push("Sending to " + r.emails[0] + ",");
+      lines.push(who ? 'but you usually reach "' + who + '" at:' : "but you usually use these addresses:");
       listEmails(lines, r.knownEmails);
       lines.push("");
     });
