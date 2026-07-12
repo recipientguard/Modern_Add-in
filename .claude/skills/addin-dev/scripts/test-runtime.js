@@ -93,26 +93,26 @@ Promise.resolve()
   // known-identity (history) checks — the single-wrong-recipient case
   .then(function () {
     return run("single wrong recipient vs known -> block (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "usually reach", null,
+      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "other addresses", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     // Product decision: flag even when the recipient's own address is known, if
     // the prefix/name resolves to ANOTHER known address.
     return run("known recipient with another known same-prefix -> flags (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "usually reach", null,
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "other addresses", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com"), knownRec("Fynn Hodder", "fynn.hodder@iteam.je")]);
   })
   .then(function () {
     // But a lone known contact with no same-prefix alternative is NOT flagged as
     // a wrong recipient (only external, since gmail != internal).
     return run("lone known recipient, no alternative -> external only",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "external recipient", "usually",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "external recipient", "other addresses",
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     return run("no known list -> known checks silent (external only)",
-      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "usually", []);
+      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "other addresses", []);
   })
   .then(function () {
     console.log("");

@@ -277,6 +277,7 @@ function detectKnownAlternatives(recipients, knownIdentities) {
         severity: "high",
         emails: [recipient.email],
         displayName: recipient.name,
+        localPart: recipient.localPart,
         matchedByName: matchedByName,
         matchedByPrefix: matchedByPrefix,
         knownEmails: emails
@@ -338,8 +339,15 @@ function buildAlertMessage(risks) {
 
   risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
     var who = (r.displayName || "").trim();
-    lines.push("Sending to " + r.emails[0] + ",");
-    lines.push(who ? 'but you usually reach "' + who + '" at:' : "but you usually use these addresses:");
+    var reason;
+    if (r.matchedByName && r.matchedByPrefix) {
+      reason = 'shares the name "' + who + '" and the address prefix "' + r.localPart + '" with contacts you use at other addresses:';
+    } else if (r.matchedByName) {
+      reason = 'shares the name "' + who + '" with contacts you use at other addresses:';
+    } else {
+      reason = 'uses the prefix "' + r.localPart + '", which you normally email at other domains:';
+    }
+    lines.push(r.emails[0] + " " + reason);
     listEmails(lines, r.knownEmails);
     lines.push("");
   });
