@@ -10,6 +10,7 @@ const repoRoot = path.resolve(__dirname, "..", "..", "..", "..");
 const runtimePath = path.join(repoRoot, "src", "sendTestRuntime.js");
 
 var RECIPS = { to: [], cc: [], bcc: [] };
+var ROAMING = {}; // stubbed RoamingSettings store (known-identity cache)
 
 global.Office = {
   AsyncResultStatus: { Succeeded: "succeeded" },
@@ -21,6 +22,11 @@ global.Office = {
         cc:  { getAsync: function (cb) { cb({ status: "succeeded", value: RECIPS.cc }); } },
         bcc: { getAsync: function (cb) { cb({ status: "succeeded", value: RECIPS.bcc }); } }
       }
+    },
+    roamingSettings: {
+      get: function (key) { return ROAMING[key]; },
+      set: function (key, value) { ROAMING[key] = value; },
+      saveAsync: function (cb) { if (cb) cb({ status: "succeeded" }); }
     }
   },
   actions: { associate: function () {} }
@@ -37,9 +43,27 @@ if (typeof handler !== "function") {
 
 function r(name, email) { return { displayName: name, emailAddress: email }; }
 
+// Build a compact known-identity record like engine.toKnownRecord would.
+function knownRec(name, email) {
+  var e = (email || "").trim().toLowerCase();
+  var at = e.lastIndexOf("@");
+  return {
+    name: name,
+    e: e,
+    n: (name || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
+    l: at > 0 ? e.slice(0, at) : "",
+    d: (at > -1 && at < e.length - 1) ? e.slice(at + 1) : ""
+  };
+}
+function setKnown(records) {
+  ROAMING["recipientGuard.knownIdentities.v1"] =
+    records && records.length ? { at: Date.now(), people: records } : undefined;
+}
+
 var failures = 0;
-function run(label, recips, expectAllow, expectContains, expectNotContains) {
+function run(label, recips, expectAllow, expectContains, expectNotContains, knownList) {
   RECIPS = { to: recips.to || [], cc: recips.cc || [], bcc: recips.bcc || [] };
+  setKnown(knownList || []);
   return new Promise(function (resolve) {
     handler({ completed: function (result) { resolve(result); } });
   }).then(function (result) {
@@ -66,6 +90,30 @@ Promise.resolve()
   // throw and fail the guard open (fixed by Object.create(null) grouping maps).
   .then(function () { return run("prototype-key prefix (constructor) -> block", { to: [r("A", "constructor@a.com")], cc: [r("B", "constructor@b.com")] }, false, "Same address prefix"); })
   .then(function () { return run("no recipients -> allow", {}, true); })
+  // known-identity (history) checks — the single-wrong-recipient case
+  .then(function () {
+    return run("single wrong recipient vs known -> block (you usually email)",
+      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "usually email", null,
+      [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
+  })
+  .then(function () {
+    // Product decision: flag even when the recipient's own address is known, if
+    // the prefix/name resolves to ANOTHER known address.
+    return run("known recipient with another known same-prefix -> flags (you usually email)",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "usually email", null,
+      [knownRec("Fynn Hodder", "fynn.hodder@gmail.com"), knownRec("Fynn Hodder", "fynn.hodder@iteam.je")]);
+  })
+  .then(function () {
+    // But a lone known contact with no same-prefix alternative is NOT flagged as
+    // a wrong recipient (only external, since gmail != internal).
+    return run("lone known recipient, no alternative -> external only",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "external recipient", "usually",
+      [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
+  })
+  .then(function () {
+    return run("no known list -> known checks silent (external only)",
+      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "usually", []);
+  })
   .then(function () {
     console.log("");
     if (failures === 0) { console.log("All analysis tests passed."); }

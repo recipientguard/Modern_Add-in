@@ -30,11 +30,18 @@ async function loadKnownPeople() {
   out.className = "muted";
 
   try {
-    const people = await window.RGNaa.getKnownPeople(25);
+    const people = await window.RGNaa.getKnownPeople(50);
     if (people.length === 0) {
       out.textContent = "Connected, but no relevant people were returned.";
       return;
     }
+
+    // Cache a compact known-identity list to RoamingSettings so the send-event
+    // runtime can read it (cross-runtime; localStorage can't do this).
+    const RG = window.RecipientGuardPoc;
+    const records = people.map(RG.toKnownRecord);
+    await RG.writeKnownIdentities(records);
+
     out.innerHTML = "";
     out.className = "";
     const heading = document.createElement("div");

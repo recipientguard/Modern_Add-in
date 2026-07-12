@@ -17,9 +17,10 @@ function onMessageSendDiagnostic(event) {
 
   try {
     var internalDomain = getInternalDomain();
+    var knownIdentities = readKnownIdentities();
     getAllRecipients().then(function (recipients) {
       clearTimeout(safety);
-      var risks = computeRisks(recipients, internalDomain);
+      var risks = computeRisks(recipients, internalDomain, knownIdentities);
       if (risks.length === 0) {
         finish({ allowEvent: true });
       } else {
