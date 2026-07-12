@@ -30,8 +30,16 @@
       <h2>Current recipients</h2>
       <div id="results" class="muted">Open this pane while composing a message.</div>
     </section>
+
+    <section class="panel">
+      <h2>Smart detection (beta)</h2>
+      <p class="muted">Uses your frequently-contacted people to spot a likely wrong recipient. First use asks permission.</p>
+      <button id="loadPeopleButton" type="button">Turn on smart detection</button>
+      <div id="peopleResults" class="muted"></div>
+    </section>
   </main>
 
+  <script src="./naa.bundle.js"></script>
   <script src="./recipientGuardCore.js?v=20260705-1"></script>
   <script src="./taskpane.js?v=20260705-1"></script>
 </body>
