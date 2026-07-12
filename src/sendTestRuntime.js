@@ -259,35 +259,29 @@
 
     recipients.forEach(function (recipient) {
       // Collect ALL known alternatives for this recipient — matched by display
-      // name OR address prefix — into one de-duplicated set, so the user sees a
-      // single finding with one list rather than an overlapping name/prefix pair.
-      var altEmails = Object.create(null);
-      var matchedByName = false;
-      var matchedByPrefix = false;
+      // name and/or email name — de-duplicated, tracking WHY each one matched so
+      // the message can annotate each alternative individually.
+      var altReasons = Object.create(null); // email -> { name: bool, prefix: bool }
 
       knownIdentities.forEach(function (k) {
         if (k.e === recipient.email) return; // same address: not an alternative
-        if (recipient.normalizedName && k.n && k.n === recipient.normalizedName) {
-          altEmails[k.e] = true;
-          matchedByName = true;
-        }
-        if (recipient.localPart && recipient.domain && k.l && k.l === recipient.localPart && k.d && k.d !== recipient.domain) {
-          altEmails[k.e] = true;
-          matchedByPrefix = true;
-        }
+        var byName = Boolean(recipient.normalizedName && k.n && k.n === recipient.normalizedName);
+        var byPrefix = Boolean(recipient.localPart && recipient.domain && k.l && k.l === recipient.localPart && k.d && k.d !== recipient.domain);
+        if (!byName && !byPrefix) return;
+        if (!altReasons[k.e]) altReasons[k.e] = { name: false, prefix: false };
+        if (byName) altReasons[k.e].name = true;
+        if (byPrefix) altReasons[k.e].prefix = true;
       });
 
-      var emails = Object.keys(altEmails);
-      if (emails.length > 0) {
+      var alternatives = Object.keys(altReasons).map(function (email) {
+        return { email: email, byName: altReasons[email].name, byPrefix: altReasons[email].prefix };
+      });
+      if (alternatives.length > 0) {
         risks.push({
           ruleId: "known_alternative",
           severity: "high",
           emails: [recipient.email],
-          displayName: recipient.name,
-          localPart: recipient.localPart,
-          matchedByName: matchedByName,
-          matchedByPrefix: matchedByPrefix,
-          knownEmails: emails
+          alternatives: alternatives
         });
       }
     });
@@ -333,9 +327,12 @@
   function buildAlertMessage(risks) {
     if (!risks || risks.length === 0) return "";
 
+    var hasKnown = risks.some(function (r) { return r.ruleId === "known_alternative"; });
     var hasStrong = risks.some(isStrong);
     var header;
-    if (hasStrong) {
+    if (hasKnown) {
+      header = "Recipient Guard found a recipient that may have been picked incorrectly from AutoComplete.";
+    } else if (hasStrong) {
       header = "Recipient Guard found a possible wrong recipient.";
     } else if (risks.length === 1) {
       header = "Recipient Guard found 1 external recipient.";
@@ -345,17 +342,22 @@
     var lines = [header, ""];
 
     risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
-      var who = (r.displayName || "").trim();
-      var reason;
-      if (r.matchedByName && r.matchedByPrefix) {
-        reason = 'shares the name "' + who + '" and the address prefix "' + r.localPart + '" with contacts you use at other addresses:';
-      } else if (r.matchedByName) {
-        reason = 'shares the name "' + who + '" with contacts you use at other addresses:';
-      } else {
-        reason = 'uses the prefix "' + r.localPart + '", which you normally email at other domains:';
+      lines.push("Sending to: " + r.emails[0]);
+      lines.push("You usually use:");
+      r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
+        var why;
+        if (alt.byName && alt.byPrefix) {
+          why = "(same display name & email name)";
+        } else if (alt.byName) {
+          why = "(same display name)";
+        } else {
+          why = "(same email name)";
+        }
+        lines.push("  " + alt.email + "  " + why);
+      });
+      if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
+        lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");
       }
-      lines.push(r.emails[0] + " " + reason);
-      listEmails(lines, r.knownEmails);
       lines.push("");
     });
 

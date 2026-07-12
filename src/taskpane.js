@@ -119,10 +119,18 @@ async function renderAnalysis() {
       const row = document.createElement("div");
       row.className = "recipient external";
       const title = document.createElement("strong");
-      if (risk.ruleId === "same_display_name") {
-        title.textContent = 'Same name, different addresses: "' + (risk.displayName || "").trim() + '"';
+      let metaText = (risk.emails || []).join(", ");
+      if (risk.ruleId === "known_alternative") {
+        title.textContent = "Possibly wrong recipient: " + risk.emails[0];
+        metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
+          const why = a.byName && a.byPrefix ? "same display name & email name"
+            : a.byName ? "same display name" : "same email name";
+          return a.email + " (" + why + ")";
+        }).join(", ");
+      } else if (risk.ruleId === "same_display_name") {
+        title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
       } else if (risk.ruleId === "same_localpart_different_domain") {
-        title.textContent = 'Same prefix, different domains: "' + risk.localPart + '"';
+        title.textContent = 'Same email name, different domains: "' + risk.localPart + '"';
       } else {
         title.textContent = "External recipient";
       }
@@ -130,7 +138,7 @@ async function renderAnalysis() {
 
       const meta = document.createElement("div");
       meta.className = "muted";
-      meta.textContent = (risk.emails || []).join(", ");
+      meta.textContent = metaText;
       row.appendChild(meta);
       warnings.appendChild(row);
     });
