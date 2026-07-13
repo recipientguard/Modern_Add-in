@@ -42,6 +42,10 @@ async function loadKnownPeople() {
     const records = people.map(RG.toKnownRecord);
     await RG.writeKnownIdentities(records);
 
+    // Now that known identities are cached, re-run the recipient analysis so the
+    // "Current recipients" section reflects them immediately.
+    renderAnalysis();
+
     out.innerHTML = "";
     out.className = "";
     const heading = document.createElement("div");
