@@ -1,11 +1,11 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipient Guard</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-  <link rel="stylesheet" href="./taskpane.css?v=20260703-1" />
+  <link rel="stylesheet" href="./taskpane.css?v=20260714-9" />
 </head>
 <body>
   <main class="shell">
@@ -13,6 +13,17 @@
       <h1>Recipient Guard</h1>
       <p>Proof of concept for New Outlook send-time recipient checks.</p>
     </header>
+
+    <section id="reviewPanel" class="panel review" hidden>
+      <h2>Review before sending</h2>
+      <p class="muted">Recipient Guard paused a send. Please check the recipients are correct.</p>
+      <div id="reviewBody"></div>
+      <div id="reviewActions" class="review-actions">
+        <button id="reviewSendButton" type="button">Send now</button>
+        <button id="reviewDelayButton" type="button" class="secondary">Delay 1 min &amp; send</button>
+        <div id="reviewStatus" class="muted"></div>
+      </div>
+    </section>
 
     <section class="panel">
       <div class="field">
@@ -39,8 +50,9 @@
     </section>
   </main>
 
-  <script src="./naa.bundle.js"></script>
-  <script src="./recipientGuardCore.js?v=20260705-1"></script>
-  <script src="./taskpane.js?v=20260705-1"></script>
+  <!-- naa.bundle.js (652 KB MSAL) is loaded on demand by taskpane.js when the
+       user turns on smart detection — keeping it off the pane-open critical path. -->
+  <script src="./recipientGuardCore.js?v=20260714-10"></script>
+  <script src="./taskpane.js?v=20260714-10"></script>
 </body>
 </html>

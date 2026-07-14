@@ -18,6 +18,13 @@
 
   var RECIPIENT_READ_TIMEOUT_MS = 1200;
   var MAX_EMAILS_PER_RISK = 6;
+  var MAX_CONTEXT_RISKS = 20; // cap findings serialized into the Smart Alert contextData
+  var MAX_RECIPIENTS_IN_ALERT = 8; // cap the recipient list in the system alert text
+
+  // The task-pane button the Smart Alert hands off to (must match the <Control>
+  // id in the manifest). Passing this as commandId in event.completed lets the
+  // block dialog offer "open the pane" for the full review list.
+  var PANE_COMMAND_ID = "RecipientGuard.OpenPane";
 
   // --- normalisation helpers (ported from Classic RecipientAnalyzer) ---
 
@@ -210,6 +217,9 @@
   // recipient to compare against within the email).
 
   var KNOWN_IDENTITIES_KEY = "recipientGuard.knownIdentities.v1";
+  var WHITELIST_KEY = "recipientGuard.whitelist.v1";
+  var BYPASS_KEY = "recipientGuard.bypassOnce.v1";
+  var BYPASS_TTL_MS = 120000; // a pane-initiated "send now" must be consumed within 2 min
 
   // Compact record: n=normalizedName, e=email, l=localPart, d=domain, name=display.
   function toKnownRecord(person) {
@@ -244,6 +254,95 @@
         resolve(false);
       }
     });
+  }
+
+  // --- whitelist (per-address "don't warn about this again") ---
+  //
+  // Stored in roamingSettings so BOTH the task pane and the send-event runtime see
+  // it. A whitelisted address is dropped from the analysis input, so it stops
+  // producing any risk (external / known-alternative / group) and also stops
+  // contributing to another recipient's group comparison.
+
+  function readWhitelist() {
+    try {
+      var rs = Office.context.roamingSettings;
+      if (!rs || typeof rs.get !== "function") return [];
+      var stored = rs.get(WHITELIST_KEY);
+      return (stored && stored.emails) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function isWhitelisted(email, whitelist) {
+    return (whitelist || []).indexOf(normalizeEmail(email)) !== -1;
+  }
+
+  function addToWhitelist(email) {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        var current = readWhitelist();
+        var e = normalizeEmail(email);
+        if (current.indexOf(e) === -1) current = current.concat([e]);
+        rs.set(WHITELIST_KEY, { at: Date.now(), emails: current });
+        rs.saveAsync(function () { resolve(current); });
+      } catch (err) {
+        resolve(readWhitelist());
+      }
+    });
+  }
+
+  function excludeWhitelisted(recipients, whitelist) {
+    if (!whitelist || whitelist.length === 0) return recipients;
+    return recipients.filter(function (r) { return !isWhitelisted(r.email, whitelist); });
+  }
+
+  // --- one-shot send bypass (pane "send now" past a block) ---
+  //
+  // sendAsync from the task pane re-triggers OnMessageSend (separate runtimes), so
+  // a pane-initiated send would re-block. The pane sets a fresh, short-lived flag;
+  // the send handler consumes it once and lets that single send through.
+
+  function setSendBypass() {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        rs.set(BYPASS_KEY, { at: Date.now() });
+        rs.saveAsync(function () { resolve(true); });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  function clearSendBypass() {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        rs.set(BYPASS_KEY, undefined);
+        rs.saveAsync(function () { resolve(true); });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  // Returns true if a fresh pane-initiated bypass is present, and clears it so it
+  // can only ever release one send (one-shot). Stale flags are ignored.
+  function consumeSendBypass() {
+    try {
+      var rs = Office.context.roamingSettings;
+      if (!rs || typeof rs.get !== "function") return false;
+      var flag = rs.get(BYPASS_KEY);
+      var fresh = Boolean(flag && flag.at && (Date.now() - flag.at) < BYPASS_TTL_MS);
+      if (flag) {
+        try { rs.set(BYPASS_KEY, undefined); rs.saveAsync(function () {}); } catch (e2) { /* best effort */ }
+      }
+      return fresh;
+    } catch (e) {
+      return false;
+    }
   }
 
   // known_display_name / known_localpart: a recipient's name or prefix matches
@@ -307,85 +406,90 @@
     });
   }
 
-  function computeRisks(recipients, internalDomain, knownIdentities) {
-    var risks = detectSameDisplayName(recipients)
-      .concat(detectSameLocalPart(recipients))
-      .concat(detectKnownAlternatives(recipients, knownIdentities || []))
-      .concat(detectExternal(recipients, internalDomain));
+  function computeRisks(recipients, internalDomain, knownIdentities, whitelist) {
+    var input = excludeWhitelisted(recipients, whitelist);
+    var risks = detectSameDisplayName(input)
+      .concat(detectSameLocalPart(input))
+      .concat(detectKnownAlternatives(input, knownIdentities || []))
+      .concat(detectExternal(input, internalDomain));
     return condense(risks);
   }
 
   // --- Smart Alert / task-pane message ---
 
-  function listEmails(lines, emails) {
-    emails.slice(0, MAX_EMAILS_PER_RISK).forEach(function (email) { lines.push("  " + email); });
-    if (emails.length > MAX_EMAILS_PER_RISK) {
-      lines.push("  +" + (emails.length - MAX_EMAILS_PER_RISK) + " more");
-    }
+  // Shared reason wording for a flagged recipient — used by the send-time alert,
+  // the review dialog, and the pane so every surface explains a flag identically.
+  function noteForRule(ruleId) {
+    if (ruleId === "known_alternative") return "You don't usually email this address";
+    if (ruleId === "same_display_name") return "Shares a display name with another recipient";
+    if (ruleId === "same_localpart_different_domain") return "Same username as another recipient";
+    if (ruleId === "external_domain") return "Outside your organisation";
+    return "";
   }
 
-  function buildAlertMessage(risks) {
+  function formatRecipientType(type) {
+    var s = (type || "").toLowerCase();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+  }
+
+  function buildAlertMessage(risks, recipients) {
     if (!risks || risks.length === 0) return "";
 
-    var hasKnown = risks.some(function (r) { return r.ruleId === "known_alternative"; });
-    var hasStrong = risks.some(isStrong);
-    var header;
-    if (hasKnown) {
-      header = "Recipient Guard found a recipient that may have been picked incorrectly from AutoComplete.";
-    } else if (hasStrong) {
-      header = "Recipient Guard found a possible wrong recipient.";
-    } else if (risks.length === 1) {
-      header = "Recipient Guard found 1 external recipient.";
-    } else {
-      header = "Recipient Guard found " + risks.length + " external recipients.";
-    }
-    var lines = [header, ""];
-
-    risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
-      lines.push("Sending to: " + r.emails[0]);
-      lines.push("You usually use:");
-      r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
-        var why;
-        if (alt.byName && alt.byPrefix) {
-          why = "(same display name & username)";
-        } else if (alt.byName) {
-          why = "(same display name)";
-        } else {
-          why = "(same username)";
-        }
-        lines.push("  " + alt.email + "  " + why);
+    // One reason per flagged address (first/strongest wins; condense() prevents a
+    // real overlap between external and the stronger signals).
+    var noteByEmail = Object.create(null);
+    var order = [];
+    risks.forEach(function (risk) {
+      var note = noteForRule(risk.ruleId);
+      if (!note) return;
+      (risk.emails || []).forEach(function (email) {
+        if (!noteByEmail[email]) { noteByEmail[email] = note; order.push(email); }
       });
-      if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
-        lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");
+    });
+
+    var lines = ["Recipient Guard paused this send. Please check the recipients are correct.", "", "This message will be sent to:"];
+
+    // List EVERY recipient (matching the review dialog), flagged ones annotated.
+    // Fall back to just the flagged addresses if the recipient list is unavailable.
+    var list = (recipients && recipients.length) ? recipients : null;
+    if (list) {
+      list.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (r) {
+        var t = formatRecipientType(r.type);
+        lines.push("  " + r.email + (t ? "  (" + t + ")" : ""));
+        if (noteByEmail[r.email]) lines.push("    " + noteByEmail[r.email]);
+      });
+      if (list.length > MAX_RECIPIENTS_IN_ALERT) {
+        lines.push("  +" + (list.length - MAX_RECIPIENTS_IN_ALERT) + " more");
       }
-      lines.push("");
-    });
-
-    risks.filter(function (r) { return r.ruleId === "same_display_name"; }).forEach(function (r) {
-      lines.push('Recipients share the display name "' + (r.displayName || "").trim() + '" but use different addresses:');
-      listEmails(lines, r.emails);
-      lines.push("");
-    });
-
-    risks.filter(function (r) { return r.ruleId === "same_localpart_different_domain"; }).forEach(function (r) {
-      lines.push('Same username "' + r.localPart + '" on different domains:');
-      listEmails(lines, r.emails);
-      lines.push("");
-    });
-
-    var external = risks.filter(function (r) { return r.ruleId === "external_domain"; });
-    if (external.length > 0) {
-      if (external.length === 1) {
-        lines.push("External recipient:");
-      } else {
-        lines.push("External recipients:");
-      }
-      listEmails(lines, external.map(function (r) { return r.emails[0]; }));
-      lines.push("");
+    } else {
+      order.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (email) {
+        lines.push("  " + email);
+        lines.push("    " + noteByEmail[email]);
+      });
     }
 
-    lines.push("Review these recipients before sending.");
+    lines.push("");
+    lines.push("Choose Take action to review, or Send anyway to send as is.");
     return lines.join("\n");
+  }
+
+  // Serialize the findings for the Smart Alert -> task pane handoff. Passed as
+  // contextData in event.completed and re-hydrated by the pane via
+  // getInitializationContextAsync to render the full review list. Kept compact and
+  // capped so it stays well under the platform's contextData size limit.
+  function buildContextData(risks) {
+    var trimmed = (risks || []).slice(0, MAX_CONTEXT_RISKS).map(function (risk) {
+      var out = { ruleId: risk.ruleId, emails: (risk.emails || []).slice(0, MAX_EMAILS_PER_RISK) };
+      if (risk.displayName) out.displayName = risk.displayName;
+      if (risk.localPart) out.localPart = risk.localPart;
+      if (risk.alternatives) {
+        out.alternatives = risk.alternatives.slice(0, MAX_EMAILS_PER_RISK).map(function (a) {
+          return { email: a.email, byName: a.byName, byPrefix: a.byPrefix };
+        });
+      }
+      return out;
+    });
+    return JSON.stringify({ v: 1, risks: trimmed });
   }
 
   // Task-pane API surface. Combined with engine.js by the build into
@@ -395,15 +499,17 @@
   function analyzeCurrentMessage() {
     var mailboxEmail = getMailboxEmail();
     var internalDomain = getInternalDomain();
+    var whitelist = readWhitelist();
     return getAllRecipients().then(function (recipients) {
       // Annotate explicitly for the task-pane's per-recipient "External" badges —
       // deliberately not a side effect of detection, so rendering never depends
       // on which rules ran or in what order.
       recipients.forEach(function (recipient) {
         recipient.isExternal = isExternalRecipient(recipient, internalDomain);
+        recipient.isWhitelisted = isWhitelisted(recipient.email, whitelist);
       });
 
-      var risks = computeRisks(recipients, internalDomain, readKnownIdentities());
+      var risks = computeRisks(recipients, internalDomain, readKnownIdentities(), whitelist);
       return {
         mailboxEmail: mailboxEmail,
         internalDomain: internalDomain,
@@ -418,6 +524,7 @@
   globalScope.RecipientGuardPoc = {
     analyzeCurrentMessage: analyzeCurrentMessage,
     buildAlertMessage: buildAlertMessage,
+    noteForRule: noteForRule,
     computeRisks: computeRisks,
     getInternalDomain: getInternalDomain,
     getMailboxEmail: getMailboxEmail,
@@ -425,6 +532,13 @@
     toKnownRecord: toKnownRecord,
     readKnownIdentities: readKnownIdentities,
     writeKnownIdentities: writeKnownIdentities,
+    // whitelist (per-address "don't warn again")
+    readWhitelist: readWhitelist,
+    isWhitelisted: isWhitelisted,
+    addToWhitelist: addToWhitelist,
+    // one-shot send bypass (pane "send now")
+    setSendBypass: setSendBypass,
+    clearSendBypass: clearSendBypass,
     // exposed for reuse/testing
     normalizeName: normalizeName,
     getLocalPart: getLocalPart,

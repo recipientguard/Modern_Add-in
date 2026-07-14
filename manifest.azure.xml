@@ -2,14 +2,13 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
            xsi:type="MailApp">
-  <Id>3d7b1f29-8f9f-4f2a-b81d-3c7ddc45a2a1</Id>
-  <Version>0.1.5.0</Version>
+  <Id>2fbbe8b8-59cf-458e-8ba1-2bb45e1eed58</Id>
+  <Version>1.0.0.0</Version>
   <ProviderName>Recipient Guard</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Recipient Guard POC" />
-  <Description DefaultValue="Recipient Guard proof of concept for New Outlook." />
+  <DisplayName DefaultValue="Recipient Guard" />
+  <Description DefaultValue="Warns you before sending to a likely wrong recipient picked from AutoComplete." />
   <IconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
   <HighResolutionIconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
   <SupportUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
@@ -40,7 +39,7 @@
 
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Requirements>
-      <bt:Sets DefaultMinVersion="1.12">
+      <bt:Sets DefaultMinVersion="1.15">
         <bt:Set Name="Mailbox" />
       </bt:Sets>
     </Requirements>
@@ -80,8 +79,8 @@
         <bt:Image id="Icon.80" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/commands.html" />
-          <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/commands.bundle.js" />
+        <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/send-test.html" />
+        <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/sendTestRuntime.js" />
         <bt:Url id="Taskpane.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
@@ -89,22 +88,22 @@
         <bt:String id="OpenPane.Label" DefaultValue="Recipient Guard" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="OpenPane.Tooltip" DefaultValue="Open Recipient Guard recipient checks." />
+        <bt:String id="OpenPane.Tooltip" DefaultValue="Open Recipient Guard to review recipients and turn on smart detection." />
       </bt:LongStrings>
     </Resources>
 
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
       <Requirements>
-        <bt:Sets DefaultMinVersion="1.12">
+        <bt:Sets DefaultMinVersion="1.15">
           <bt:Set Name="Mailbox" />
         </bt:Sets>
       </Requirements>
       <Hosts>
         <Host xsi:type="MailHost">
           <Runtimes>
-            <Runtime resid="Commands.Url" lifetime="short">
-            <Override type="javascript" resid="Commands.Script.Url" />
-          </Runtime>
+            <Runtime resid="Commands.Url">
+              <Override type="javascript" resid="Commands.Script.Url" />
+            </Runtime>
           </Runtimes>
           <DesktopFormFactor>
             <FunctionFile resid="Commands.Url" />
@@ -125,6 +124,7 @@
                     </Icon>
                     <Action xsi:type="ShowTaskpane">
                       <SourceLocation resid="Taskpane.Url" />
+                      <SupportsPinning>true</SupportsPinning>
                     </Action>
                   </Control>
                 </Group>
@@ -132,7 +132,7 @@
             </ExtensionPoint>
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
-                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser" />
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendDiagnostic" SendMode="PromptUser" />
               </LaunchEvents>
               <SourceLocation resid="Commands.Url" />
             </ExtensionPoint>
@@ -146,8 +146,8 @@
           <bt:Image id="Icon.80" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
         </bt:Images>
         <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/commands.html" />
-          <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/commands.bundle.js" />
+          <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/send-test.html" />
+          <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/sendTestRuntime.js" />
           <bt:Url id="Taskpane.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
         </bt:Urls>
         <bt:ShortStrings>
@@ -155,11 +155,9 @@
           <bt:String id="OpenPane.Label" DefaultValue="Recipient Guard" />
         </bt:ShortStrings>
         <bt:LongStrings>
-          <bt:String id="OpenPane.Tooltip" DefaultValue="Open Recipient Guard recipient checks." />
+          <bt:String id="OpenPane.Tooltip" DefaultValue="Open Recipient Guard to review recipients and turn on smart detection." />
         </bt:LongStrings>
       </Resources>
     </VersionOverrides>
   </VersionOverrides>
 </OfficeApp>
-
-

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Review before sending</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="./taskpane.css?v=20260714-9" />
+</head>
+<body>
+  <main class="dialog">
+    <h1 id="dlgTitle">Review before sending</h1>
+    <p id="dlgIntro" class="muted">Recipient Guard paused a send. Please check the recipients are correct.</p>
+    <div id="dlgBody" class="muted">Loading recipients…</div>
+    <div id="dlgActions" class="dialog-actions">
+      <button id="dlgSend" type="button">Send</button>
+      <button id="dlgDelay" type="button" class="secondary">Delay 1 min &amp; send</button>
+      <button id="dlgCancel" type="button" class="secondary">Cancel</button>
+    </div>
+    <div id="dlgStatus" class="muted"></div>
+  </main>
+  <script src="./review-dialog.js?v=20260714-9"></script>
+</body>
+</html>

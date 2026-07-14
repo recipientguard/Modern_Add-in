@@ -12,19 +12,32 @@ function onMessageSendDiagnostic(event) {
     try { event.completed(result); } catch (ignored) { /* nothing more we can do */ }
   }
 
+  // A pane-initiated "send now" set a one-shot bypass — the pane already showed
+  // the review, so let this single send through without re-prompting.
+  if (consumeSendBypass()) { finish({ allowEvent: true }); return; }
+
   // Never let the send hang: if analysis stalls, fail open (allow the send).
   var safety = setTimeout(function () { finish({ allowEvent: true }); }, SEND_SAFETY_TIMEOUT_MS);
 
   try {
     var internalDomain = getInternalDomain();
     var knownIdentities = readKnownIdentities();
+    var whitelist = readWhitelist();
     getAllRecipients().then(function (recipients) {
       clearTimeout(safety);
-      var risks = computeRisks(recipients, internalDomain, knownIdentities);
+      var risks = computeRisks(recipients, internalDomain, knownIdentities, whitelist);
       if (risks.length === 0) {
         finish({ allowEvent: true });
       } else {
-        finish({ allowEvent: false, errorMessage: buildAlertMessage(risks) });
+        // Block, and offer to open the task pane for the full review list.
+        // commandId points at the manifest's task-pane button; contextData
+        // carries the findings the pane re-hydrates.
+        finish({
+          allowEvent: false,
+          errorMessage: buildAlertMessage(risks, recipients),
+          commandId: PANE_COMMAND_ID,
+          contextData: buildContextData(risks)
+        });
       }
     })["catch"](function () {
       clearTimeout(safety);

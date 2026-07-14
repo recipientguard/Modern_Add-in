@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   font-family: "Segoe UI", Arial, sans-serif;
   color: #201f1e;
@@ -8,6 +8,12 @@
 body {
   margin: 0;
   background: #ffffff;
+}
+
+/* The hidden attribute must win even over elements with an explicit display
+   (e.g. .dialog-actions uses display:flex, which would otherwise show through). */
+[hidden] {
+  display: none !important;
 }
 
 .shell {
@@ -37,6 +43,16 @@ header p {
   margin: 0 0 10px;
   font-size: 16px;
   font-weight: 650;
+}
+
+.panel.review {
+  border-color: #c50f1f;
+  border-left-width: 4px;
+  background: #fff6f6;
+}
+
+.panel.review h2 {
+  color: #a4262c;
 }
 
 .field {
@@ -78,6 +94,11 @@ button:disabled {
   gap: 8px;
 }
 
+.list-heading {
+  font-weight: 650;
+  margin: 16px 0 8px;
+}
+
 .check-summary {
   margin-bottom: 10px;
   padding: 9px 10px;
@@ -106,9 +127,99 @@ button:disabled {
   color: #c50f1f;
 }
 
+/* Flagged recipient in the combined dialog list — a calm amber caution, not
+   an alarming red, and no separate warning card. */
+.recipient.flagged {
+  border-left: 4px solid #d29200;
+  background: #fffdf5;
+}
+
+.flag-note {
+  color: #8a6d00;
+  font-weight: 650;
+  margin-top: 4px;
+}
+
 .badge {
   display: inline-block;
   margin-left: 8px;
   color: #c50f1f;
   font-weight: 650;
+}
+
+.badge-muted {
+  display: inline-block;
+  margin-left: 8px;
+  color: #605e5c;
+  font-weight: 650;
+  font-size: 12px;
+}
+
+.recipient.whitelisted strong {
+  color: #0b6a0b;
+}
+
+/* Link-styled button (whitelist / cancel) — an inline action, not a CTA. */
+button.linklike {
+  border: none;
+  background: none;
+  color: #0f6cbd;
+  padding: 6px 0 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+button.linklike:hover {
+  background: none;
+  color: #115ea3;
+}
+
+button.secondary {
+  border: 1px solid #8a8886;
+  background: #ffffff;
+  color: #201f1e;
+}
+
+button.secondary:hover {
+  background: #f3f2f1;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.review-actions #reviewStatus {
+  flex-basis: 100%;
+}
+
+/* Centered review dialog (displayDialogAsync) */
+.dialog {
+  padding: 18px;
+}
+
+.dialog h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.dialog > p {
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+#dlgStatus {
+  margin-top: 10px;
 }

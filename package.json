@@ -7,6 +7,7 @@
     "start": "node server.js",
     "build": "node scripts/build.js && npm run build:naa",
     "build:naa": "esbuild src/lib/naa.js --bundle --format=iife --target=es2017 --outfile=src/naa.bundle.js",
+    "deploy": "node scripts/deploy.js",
     "test": "node .claude/skills/addin-dev/scripts/test-runtime.js"
   },
   "engines": {

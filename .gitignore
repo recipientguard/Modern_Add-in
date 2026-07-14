@@ -11,3 +11,6 @@ Thumbs.db
 
 # Generated esbuild bundle (rebuild: npm run build:naa)
 src/naa.bundle.js
+
+# Deploy build folder (assembled by the deploy step)
+dist/
