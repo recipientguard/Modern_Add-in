@@ -19,6 +19,7 @@
   var RECIPIENT_READ_TIMEOUT_MS = 1200;
   var MAX_EMAILS_PER_RISK = 6;
   var MAX_CONTEXT_RISKS = 20; // cap findings serialized into the Smart Alert contextData
+  var MAX_RECIPIENTS_IN_ALERT = 8; // cap the recipient list in the system alert text
 
   // The task-pane button the Smart Alert hands off to (must match the <Control>
   // id in the manifest). Passing this as commandId in event.completed lets the
@@ -426,7 +427,12 @@
     return "";
   }
 
-  function buildAlertMessage(risks) {
+  function formatRecipientType(type) {
+    var s = (type || "").toLowerCase();
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+  }
+
+  function buildAlertMessage(risks, recipients) {
     if (!risks || risks.length === 0) return "";
 
     // One reason per flagged address (first/strongest wins; condense() prevents a
@@ -441,15 +447,27 @@
       });
     });
 
-    var lines = ["Recipient Guard paused this send. Please check the recipients are correct.", ""];
-    var shown = order.slice(0, MAX_EMAILS_PER_RISK);
-    shown.forEach(function (email) {
-      lines.push(email);
-      lines.push("  " + noteByEmail[email]);
-    });
-    if (order.length > shown.length) {
-      lines.push("  +" + (order.length - shown.length) + " more");
+    var lines = ["Recipient Guard paused this send. Please check the recipients are correct.", "", "This message will be sent to:"];
+
+    // List EVERY recipient (matching the review dialog), flagged ones annotated.
+    // Fall back to just the flagged addresses if the recipient list is unavailable.
+    var list = (recipients && recipients.length) ? recipients : null;
+    if (list) {
+      list.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (r) {
+        var t = formatRecipientType(r.type);
+        lines.push("  " + r.email + (t ? "  (" + t + ")" : ""));
+        if (noteByEmail[r.email]) lines.push("    " + noteByEmail[r.email]);
+      });
+      if (list.length > MAX_RECIPIENTS_IN_ALERT) {
+        lines.push("  +" + (list.length - MAX_RECIPIENTS_IN_ALERT) + " more");
+      }
+    } else {
+      order.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (email) {
+        lines.push("  " + email);
+        lines.push("    " + noteByEmail[email]);
+      });
     }
+
     lines.push("");
     lines.push("Choose Take action to review, or Send anyway to send as is.");
     return lines.join("\n");
@@ -510,7 +528,7 @@
           // carries the findings the pane re-hydrates.
           finish({
             allowEvent: false,
-            errorMessage: buildAlertMessage(risks),
+            errorMessage: buildAlertMessage(risks, recipients),
             commandId: PANE_COMMAND_ID,
             contextData: buildContextData(risks)
           });

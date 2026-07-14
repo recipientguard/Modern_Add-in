@@ -34,7 +34,7 @@ function onMessageSendDiagnostic(event) {
         // carries the findings the pane re-hydrates.
         finish({
           allowEvent: false,
-          errorMessage: buildAlertMessage(risks),
+          errorMessage: buildAlertMessage(risks, recipients),
           commandId: PANE_COMMAND_ID,
           contextData: buildContextData(risks)
         });
