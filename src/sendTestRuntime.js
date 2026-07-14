@@ -216,6 +216,9 @@
   // recipient to compare against within the email).
 
   var KNOWN_IDENTITIES_KEY = "recipientGuard.knownIdentities.v1";
+  var WHITELIST_KEY = "recipientGuard.whitelist.v1";
+  var BYPASS_KEY = "recipientGuard.bypassOnce.v1";
+  var BYPASS_TTL_MS = 120000; // a pane-initiated "send now" must be consumed within 2 min
 
   // Compact record: n=normalizedName, e=email, l=localPart, d=domain, name=display.
   function toKnownRecord(person) {
@@ -250,6 +253,95 @@
         resolve(false);
       }
     });
+  }
+
+  // --- whitelist (per-address "don't warn about this again") ---
+  //
+  // Stored in roamingSettings so BOTH the task pane and the send-event runtime see
+  // it. A whitelisted address is dropped from the analysis input, so it stops
+  // producing any risk (external / known-alternative / group) and also stops
+  // contributing to another recipient's group comparison.
+
+  function readWhitelist() {
+    try {
+      var rs = Office.context.roamingSettings;
+      if (!rs || typeof rs.get !== "function") return [];
+      var stored = rs.get(WHITELIST_KEY);
+      return (stored && stored.emails) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function isWhitelisted(email, whitelist) {
+    return (whitelist || []).indexOf(normalizeEmail(email)) !== -1;
+  }
+
+  function addToWhitelist(email) {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        var current = readWhitelist();
+        var e = normalizeEmail(email);
+        if (current.indexOf(e) === -1) current = current.concat([e]);
+        rs.set(WHITELIST_KEY, { at: Date.now(), emails: current });
+        rs.saveAsync(function () { resolve(current); });
+      } catch (err) {
+        resolve(readWhitelist());
+      }
+    });
+  }
+
+  function excludeWhitelisted(recipients, whitelist) {
+    if (!whitelist || whitelist.length === 0) return recipients;
+    return recipients.filter(function (r) { return !isWhitelisted(r.email, whitelist); });
+  }
+
+  // --- one-shot send bypass (pane "send now" past a block) ---
+  //
+  // sendAsync from the task pane re-triggers OnMessageSend (separate runtimes), so
+  // a pane-initiated send would re-block. The pane sets a fresh, short-lived flag;
+  // the send handler consumes it once and lets that single send through.
+
+  function setSendBypass() {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        rs.set(BYPASS_KEY, { at: Date.now() });
+        rs.saveAsync(function () { resolve(true); });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  function clearSendBypass() {
+    return new Promise(function (resolve) {
+      try {
+        var rs = Office.context.roamingSettings;
+        rs.set(BYPASS_KEY, undefined);
+        rs.saveAsync(function () { resolve(true); });
+      } catch (e) {
+        resolve(false);
+      }
+    });
+  }
+
+  // Returns true if a fresh pane-initiated bypass is present, and clears it so it
+  // can only ever release one send (one-shot). Stale flags are ignored.
+  function consumeSendBypass() {
+    try {
+      var rs = Office.context.roamingSettings;
+      if (!rs || typeof rs.get !== "function") return false;
+      var flag = rs.get(BYPASS_KEY);
+      var fresh = Boolean(flag && flag.at && (Date.now() - flag.at) < BYPASS_TTL_MS);
+      if (flag) {
+        try { rs.set(BYPASS_KEY, undefined); rs.saveAsync(function () {}); } catch (e2) { /* best effort */ }
+      }
+      return fresh;
+    } catch (e) {
+      return false;
+    }
   }
 
   // known_display_name / known_localpart: a recipient's name or prefix matches
@@ -313,11 +405,12 @@
     });
   }
 
-  function computeRisks(recipients, internalDomain, knownIdentities) {
-    var risks = detectSameDisplayName(recipients)
-      .concat(detectSameLocalPart(recipients))
-      .concat(detectKnownAlternatives(recipients, knownIdentities || []))
-      .concat(detectExternal(recipients, internalDomain));
+  function computeRisks(recipients, internalDomain, knownIdentities, whitelist) {
+    var input = excludeWhitelisted(recipients, whitelist);
+    var risks = detectSameDisplayName(input)
+      .concat(detectSameLocalPart(input))
+      .concat(detectKnownAlternatives(input, knownIdentities || []))
+      .concat(detectExternal(input, internalDomain));
     return condense(risks);
   }
 
@@ -428,15 +521,20 @@
       try { event.completed(result); } catch (ignored) { /* nothing more we can do */ }
     }
 
+    // A pane-initiated "send now" set a one-shot bypass — the pane already showed
+    // the review, so let this single send through without re-prompting.
+    if (consumeSendBypass()) { finish({ allowEvent: true }); return; }
+
     // Never let the send hang: if analysis stalls, fail open (allow the send).
     var safety = setTimeout(function () { finish({ allowEvent: true }); }, SEND_SAFETY_TIMEOUT_MS);
 
     try {
       var internalDomain = getInternalDomain();
       var knownIdentities = readKnownIdentities();
+      var whitelist = readWhitelist();
       getAllRecipients().then(function (recipients) {
         clearTimeout(safety);
-        var risks = computeRisks(recipients, internalDomain, knownIdentities);
+        var risks = computeRisks(recipients, internalDomain, knownIdentities, whitelist);
         if (risks.length === 0) {
           finish({ allowEvent: true });
         } else {

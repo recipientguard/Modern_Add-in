@@ -8,7 +8,86 @@ Office.onReady(() => {
 
   const peopleButton = document.getElementById("loadPeopleButton");
   if (peopleButton) peopleButton.addEventListener("click", loadKnownPeople);
+
+  const reviewSendButton = document.getElementById("reviewSendButton");
+  if (reviewSendButton) reviewSendButton.addEventListener("click", () => reviewSend(0));
+  const reviewDelayButton = document.getElementById("reviewDelayButton");
+  if (reviewDelayButton) reviewDelayButton.addEventListener("click", () => reviewSend(60));
 });
+
+// Send the message from the review pane. The Smart Alert dialog is gone by the
+// time this pane is open, so this is how the user proceeds without re-triggering
+// the block: set a one-shot bypass, then sendAsync. Optionally count down first.
+// NOTE: the countdown runs in this pane — if the pane is closed mid-countdown the
+// send won't fire (Modern has no background delayed-send like Classic did).
+function reviewSend(delaySeconds) {
+  const RG = window.RecipientGuardPoc;
+  const item = Office.context.mailbox.item;
+  const status = document.getElementById("reviewStatus");
+  const sendBtn = document.getElementById("reviewSendButton");
+  const delayBtn = document.getElementById("reviewDelayButton");
+
+  if (!item || typeof item.sendAsync !== "function") {
+    status.textContent = "This Outlook version can't send from here — go back to your message and choose Send Anyway.";
+    return;
+  }
+
+  const reset = () => {
+    if (sendBtn) sendBtn.disabled = false;
+    if (delayBtn) delayBtn.disabled = false;
+  };
+  const doSend = () => {
+    status.textContent = "Sending...";
+    // Set the bypass, then send. Nothing after sendAsync is guaranteed to run
+    // (the item may already be sent), so clear-on-failure is the only follow-up.
+    RG.setSendBypass().then(() => {
+      item.sendAsync((res) => {
+        if (res && res.status === Office.AsyncResultStatus.Failed) {
+          RG.clearSendBypass();
+          status.textContent = "Couldn't send: " + ((res.error && res.error.message) || "unknown error");
+          reset();
+        }
+      });
+    });
+  };
+
+  if (sendBtn) sendBtn.disabled = true;
+  if (delayBtn) delayBtn.disabled = true;
+
+  if (!delaySeconds) {
+    doSend();
+    return;
+  }
+
+  let remaining = delaySeconds;
+  status.innerHTML = "";
+  const label = document.createElement("span");
+  label.textContent = "Sending in " + remaining + "s… ";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "linklike";
+  cancel.textContent = "Cancel";
+  status.appendChild(label);
+  status.appendChild(cancel);
+
+  const timer = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(timer);
+      status.textContent = "";
+      doSend();
+      return;
+    }
+    label.textContent = "Sending in " + remaining + "s… ";
+  }, 1000);
+
+  cancel.addEventListener("click", () => {
+    clearInterval(timer);
+    RG.clearSendBypass();
+    status.textContent = "Delayed send cancelled.";
+    reset();
+  });
+}
 
 // When the pane is opened from the Smart Alert "review" button, Outlook hands us
 // the findings as an initialization context. Render them prominently at the top.
@@ -78,7 +157,33 @@ function buildRiskRow(risk) {
   meta.className = "muted";
   meta.textContent = metaText;
   row.appendChild(meta);
+
+  // Per-address "don't warn again" for the single-subject rules (the flagged
+  // address is unambiguous). Group rules (same display name / username) involve
+  // several addresses, so a single whitelist action would be ambiguous — skip.
+  if (risk.ruleId === "known_alternative" || risk.ruleId === "external_domain") {
+    const email = (risk.emails || [])[0];
+    if (email) row.appendChild(buildWhitelistButton(email, row, meta));
+  }
   return row;
+}
+
+// "Don't warn about this address again" — writes to the whitelist (shared with
+// the send handler), reflects it in the row, and refreshes the live list.
+function buildWhitelistButton(email, row, meta) {
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "linklike";
+  link.textContent = "Don't warn about this address";
+  link.addEventListener("click", async () => {
+    link.disabled = true;
+    await window.RecipientGuardPoc.addToWhitelist(email);
+    row.className = "recipient whitelisted";
+    meta.textContent = "Whitelisted — won't warn about " + email + " again";
+    link.remove();
+    renderAnalysis();
+  });
+  return link;
 }
 
 // A1 proof: acquire a Graph token via NAA and list the user's frequently-

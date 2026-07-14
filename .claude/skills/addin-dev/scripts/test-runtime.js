@@ -59,11 +59,20 @@ function setKnown(records) {
   ROAMING["recipientGuard.knownIdentities.v1"] =
     records && records.length ? { at: Date.now(), people: records } : undefined;
 }
+function setWhitelist(emails) {
+  ROAMING["recipientGuard.whitelist.v1"] =
+    emails && emails.length ? { at: Date.now(), emails: emails } : undefined;
+}
+function setBypass(ageMs) {
+  ROAMING["recipientGuard.bypassOnce.v1"] = { at: Date.now() - (ageMs || 0) };
+}
 
 var failures = 0;
 function run(label, recips, expectAllow, expectContains, expectNotContains, knownList) {
   RECIPS = { to: recips.to || [], cc: recips.cc || [], bcc: recips.bcc || [] };
   setKnown(knownList || []);
+  setWhitelist([]); // reset so state can't leak between scenarios
+  ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
   return new Promise(function (resolve) {
     handler({ completed: function (result) { resolve(result); } });
   }).then(function (result) {
@@ -114,11 +123,75 @@ Promise.resolve()
     return run("no known list -> known checks silent (external only)",
       { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "AutoComplete", []);
   })
+  // --- whitelist: a whitelisted address stops producing any risk ---
+  .then(function () {
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
+    setKnown([]);
+    setWhitelist(["bob@client.com"]);
+    ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === true;
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "whitelisted external recipient -> allow (no risk)");
+    });
+  })
+  .then(function () {
+    // Whitelisting the wrong address still flags a DIFFERENT wrong recipient.
+    RECIPS = { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")], cc: [], bcc: [] };
+    setKnown([knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
+    setWhitelist(["someone.else@nowhere.com"]);
+    ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("AutoComplete") !== -1;
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "unrelated whitelist entry -> still blocks the real wrong recipient");
+    });
+  })
+  // --- one-shot send bypass: a fresh flag releases exactly one send ---
+  .then(function () {
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
+    setKnown([]);
+    setWhitelist([]);
+    setBypass(0); // fresh
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === true; // bypass releases this send
+      // one-shot: a second send with no fresh flag must block again
+      return new Promise(function (resolve) {
+        handler({ completed: function (r2) { resolve(r2); } });
+      }).then(function (r2) {
+        if (r2.allowEvent !== false) ok = false;
+        if (!ok) failures++;
+        console.log((ok ? "PASS " : "FAIL ") + "fresh bypass releases one send, then re-blocks (one-shot)");
+      });
+    });
+  })
+  .then(function () {
+    // A stale bypass flag (older than the TTL) must NOT release the send.
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
+    setKnown([]);
+    setWhitelist([]);
+    setBypass(5 * 60 * 1000); // 5 min old -> stale
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === false;
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "stale bypass flag -> still blocks");
+    });
+  })
   .then(function () {
     // Smart Alert -> task pane handoff: a block must carry commandId + parseable
     // contextData so the pane can render the full review list.
     RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
     setKnown([]);
+    setWhitelist([]);
+    ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
     return new Promise(function (resolve) {
       handler({ completed: function (result) { resolve(result); } });
     }).then(function (result) {

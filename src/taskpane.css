@@ -122,3 +122,45 @@ button:disabled {
   color: #c50f1f;
   font-weight: 650;
 }
+
+.recipient.whitelisted strong {
+  color: #0b6a0b;
+}
+
+/* Link-styled button (whitelist / cancel) — an inline action, not a CTA. */
+button.linklike {
+  border: none;
+  background: none;
+  color: #0f6cbd;
+  padding: 6px 0 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+button.linklike:hover {
+  background: none;
+  color: #115ea3;
+}
+
+button.secondary {
+  border: 1px solid #8a8886;
+  background: #ffffff;
+  color: #201f1e;
+}
+
+button.secondary:hover {
+  background: #f3f2f1;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.review-actions #reviewStatus {
+  flex-basis: 100%;
+}

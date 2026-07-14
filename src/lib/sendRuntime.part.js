@@ -12,15 +12,20 @@ function onMessageSendDiagnostic(event) {
     try { event.completed(result); } catch (ignored) { /* nothing more we can do */ }
   }
 
+  // A pane-initiated "send now" set a one-shot bypass — the pane already showed
+  // the review, so let this single send through without re-prompting.
+  if (consumeSendBypass()) { finish({ allowEvent: true }); return; }
+
   // Never let the send hang: if analysis stalls, fail open (allow the send).
   var safety = setTimeout(function () { finish({ allowEvent: true }); }, SEND_SAFETY_TIMEOUT_MS);
 
   try {
     var internalDomain = getInternalDomain();
     var knownIdentities = readKnownIdentities();
+    var whitelist = readWhitelist();
     getAllRecipients().then(function (recipients) {
       clearTimeout(safety);
-      var risks = computeRisks(recipients, internalDomain, knownIdentities);
+      var risks = computeRisks(recipients, internalDomain, knownIdentities, whitelist);
       if (risks.length === 0) {
         finish({ allowEvent: true });
       } else {
