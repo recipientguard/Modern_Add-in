@@ -158,13 +158,10 @@ function openReviewDialog() {
 // Annotate every recipient with whether/why it's flagged, so the dialog shows a
 // single combined list instead of a separate red findings card + a plain list.
 function buildDialogRecipients(risks, recipients) {
+  const RG = window.RecipientGuardPoc;
   const noteByEmail = Object.create(null);
   risks.forEach((risk) => {
-    let note = null;
-    if (risk.ruleId === "known_alternative") note = "You don't usually email this address";
-    else if (risk.ruleId === "same_display_name") note = "Shares a display name with another recipient";
-    else if (risk.ruleId === "same_localpart_different_domain") note = "Same username as another recipient";
-    else if (risk.ruleId === "external_domain") note = "Outside your organisation";
+    const note = RG.noteForRule(risk.ruleId);
     if (!note) return;
     (risk.emails || []).forEach((email) => {
       if (!noteByEmail[email]) noteByEmail[email] = note; // first (strongest) wins; condense() prevents overlap
@@ -239,19 +236,21 @@ function safeCloseReviewDialog(dialog) {
 // would be ambiguous — no whitelistEmail. Used by the pane rows AND the dialog
 // payload so both surfaces word findings identically.
 function describeRisk(risk) {
+  const RG = window.RecipientGuardPoc;
   let title;
-  let detail = (risk.emails || []).join(", ");
+  let detail = RG.noteForRule(risk.ruleId);
   let whitelistEmail = null;
   if (risk.ruleId === "known_alternative") {
     title = "Possibly wrong recipient: " + risk.emails[0];
-    detail = "You usually use: " + (risk.alternatives || []).map((a) => a.email).join(", ");
     whitelistEmail = risk.emails[0];
   } else if (risk.ruleId === "same_display_name") {
-    title = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
+    title = 'Shares a display name: "' + (risk.displayName || "").trim() + '"';
+    detail = (risk.emails || []).join(", ");
   } else if (risk.ruleId === "same_localpart_different_domain") {
-    title = 'Same username, different domains: "' + risk.localPart + '"';
+    title = 'Same username: "' + risk.localPart + '"';
+    detail = (risk.emails || []).join(", ");
   } else {
-    title = "External recipient";
+    title = "External recipient: " + (risk.emails || [])[0];
     whitelistEmail = (risk.emails || [])[0];
   }
   return { title, detail, whitelistEmail };
@@ -262,7 +261,7 @@ function describeRisk(risk) {
 function buildRiskRow(risk) {
   const d = describeRisk(risk);
   const row = document.createElement("div");
-  row.className = "recipient external";
+  row.className = "recipient flagged";
 
   const title = document.createElement("strong");
   title.textContent = d.title;

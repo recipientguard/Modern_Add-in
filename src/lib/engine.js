@@ -409,66 +409,42 @@ function computeRisks(recipients, internalDomain, knownIdentities, whitelist) {
 
 // --- Smart Alert / task-pane message ---
 
-function listEmails(lines, emails) {
-  emails.slice(0, MAX_EMAILS_PER_RISK).forEach(function (email) { lines.push("  " + email); });
-  if (emails.length > MAX_EMAILS_PER_RISK) {
-    lines.push("  +" + (emails.length - MAX_EMAILS_PER_RISK) + " more");
-  }
+// Shared reason wording for a flagged recipient — used by the send-time alert,
+// the review dialog, and the pane so every surface explains a flag identically.
+function noteForRule(ruleId) {
+  if (ruleId === "known_alternative") return "You don't usually email this address";
+  if (ruleId === "same_display_name") return "Shares a display name with another recipient";
+  if (ruleId === "same_localpart_different_domain") return "Same username as another recipient";
+  if (ruleId === "external_domain") return "Outside your organisation";
+  return "";
 }
 
 function buildAlertMessage(risks) {
   if (!risks || risks.length === 0) return "";
 
-  var hasKnown = risks.some(function (r) { return r.ruleId === "known_alternative"; });
-  var hasStrong = risks.some(isStrong);
-  var header;
-  if (hasKnown) {
-    header = "Recipient Guard found a recipient that may have been picked incorrectly from AutoComplete.";
-  } else if (hasStrong) {
-    header = "Recipient Guard found a possible wrong recipient.";
-  } else if (risks.length === 1) {
-    header = "Recipient Guard found 1 external recipient.";
-  } else {
-    header = "Recipient Guard found " + risks.length + " external recipients.";
-  }
-  var lines = [header, ""];
-
-  risks.filter(function (r) { return r.ruleId === "known_alternative"; }).forEach(function (r) {
-    lines.push("Sending to: " + r.emails[0]);
-    lines.push("You usually use:");
-    r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
-      lines.push("  " + alt.email);
+  // One reason per flagged address (first/strongest wins; condense() prevents a
+  // real overlap between external and the stronger signals).
+  var noteByEmail = Object.create(null);
+  var order = [];
+  risks.forEach(function (risk) {
+    var note = noteForRule(risk.ruleId);
+    if (!note) return;
+    (risk.emails || []).forEach(function (email) {
+      if (!noteByEmail[email]) { noteByEmail[email] = note; order.push(email); }
     });
-    if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
-      lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");
-    }
-    lines.push("");
   });
 
-  risks.filter(function (r) { return r.ruleId === "same_display_name"; }).forEach(function (r) {
-    lines.push('Recipients share the display name "' + (r.displayName || "").trim() + '" but use different addresses:');
-    listEmails(lines, r.emails);
-    lines.push("");
+  var lines = ["Recipient Guard paused this send. Please check the recipients are correct.", ""];
+  var shown = order.slice(0, MAX_EMAILS_PER_RISK);
+  shown.forEach(function (email) {
+    lines.push(email);
+    lines.push("  " + noteByEmail[email]);
   });
-
-  risks.filter(function (r) { return r.ruleId === "same_localpart_different_domain"; }).forEach(function (r) {
-    lines.push('Same username "' + r.localPart + '" on different domains:');
-    listEmails(lines, r.emails);
-    lines.push("");
-  });
-
-  var external = risks.filter(function (r) { return r.ruleId === "external_domain"; });
-  if (external.length > 0) {
-    if (external.length === 1) {
-      lines.push("External recipient:");
-    } else {
-      lines.push("External recipients:");
-    }
-    listEmails(lines, external.map(function (r) { return r.emails[0]; }));
-    lines.push("");
+  if (order.length > shown.length) {
+    lines.push("  +" + (order.length - shown.length) + " more");
   }
-
-  lines.push("Review these recipients before sending.");
+  lines.push("");
+  lines.push("Choose Take action to review, or Send anyway to send as is.");
   return lines.join("\n");
 }
 

@@ -88,13 +88,13 @@ function run(label, recips, expectAllow, expectContains, expectNotContains, know
 
 Promise.resolve()
   .then(function () { return run("clean internal send -> allow", { to: [r("Alice", "alice@iteam.je")] }, true); })
-  .then(function () { return run("wrong-person name+prefix clash -> block", { to: [r("Fynn Hodder", "fynn@iteam.je"), r("Fynn Hodder", "fynn@gmail.com")] }, false, "possible wrong recipient"); })
-  .then(function () { return run("external only -> block", { to: [r("Bob", "bob@client.com")] }, false, "external recipient"); })
+  .then(function () { return run("wrong-person name+prefix clash -> block", { to: [r("Fynn Hodder", "fynn@iteam.je"), r("Fynn Hodder", "fynn@gmail.com")] }, false, "Shares a display name"); })
+  .then(function () { return run("external only -> block", { to: [r("Bob", "bob@client.com")] }, false, "Outside your organisation"); })
   .then(function () { return run("personal prefix across domains -> block (prefix clash)", { to: [r("Jon A", "jon.doe@acme.com")], cc: [r("Jon B", "jon.doe@acme-invoices.com")] }, false, "Same username"); })
   // Generic mailbox (sales@) across two real vendors is a legit send, not a
   // wrong-recipient clash: it should NOT produce a "Same username" risk
   // (it's still flagged as external, which is correct).
-  .then(function () { return run("generic prefix (sales@) across vendors -> not a prefix clash", { to: [r("Sales A", "sales@acme.com")], cc: [r("Sales B", "sales@partner.com")] }, false, "external recipient", "Same username"); })
+  .then(function () { return run("generic prefix (sales@) across vendors -> not a prefix clash", { to: [r("Sales A", "sales@acme.com")], cc: [r("Sales B", "sales@partner.com")] }, false, "Outside your organisation", "Same username"); })
   // Regression: a prefix/display-name equal to an Object.prototype key must not
   // throw and fail the guard open (fixed by Object.create(null) grouping maps).
   .then(function () { return run("prototype-key prefix (constructor) -> block", { to: [r("A", "constructor@a.com")], cc: [r("B", "constructor@b.com")] }, false, "Same username"); })
@@ -102,26 +102,26 @@ Promise.resolve()
   // known-identity (history) checks — the single-wrong-recipient case
   .then(function () {
     return run("single wrong recipient vs known -> block (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "AutoComplete", null,
+      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "You don't usually email", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     // Product decision: flag even when the recipient's own address is known, if
     // the prefix/name resolves to ANOTHER known address.
     return run("known recipient with another known same-prefix -> flags (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "AutoComplete", null,
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "You don't usually email", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com"), knownRec("Fynn Hodder", "fynn.hodder@iteam.je")]);
   })
   .then(function () {
     // But a lone known contact with no same-prefix alternative is NOT flagged as
     // a wrong recipient (only external, since gmail != internal).
     return run("lone known recipient, no alternative -> external only",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "external recipient", "AutoComplete",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "Outside your organisation", "You don't usually email",
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     return run("no known list -> known checks silent (external only)",
-      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "AutoComplete", []);
+      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "Outside your organisation", "You don't usually email", []);
   })
   // --- whitelist: a whitelisted address stops producing any risk ---
   .then(function () {
@@ -146,7 +146,7 @@ Promise.resolve()
     return new Promise(function (resolve) {
       handler({ completed: function (result) { resolve(result); } });
     }).then(function (result) {
-      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("AutoComplete") !== -1;
+      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("You don't usually email") !== -1;
       if (!ok) failures++;
       console.log((ok ? "PASS " : "FAIL ") + "unrelated whitelist entry -> still blocks the real wrong recipient");
     });
