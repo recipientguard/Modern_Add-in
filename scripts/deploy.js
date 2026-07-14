@@ -20,6 +20,7 @@ const dist = path.join(root, "dist");
 // Files the manifest (and the pages it loads) actually need.
 const SRC_FILES = [
   "taskpane.html", "taskpane.css", "taskpane.js",
+  "review-dialog.html", "review-dialog.js",
   "send-test.html", "sendTestRuntime.js", "recipientGuardCore.js",
   "naa.bundle.js"
 ];

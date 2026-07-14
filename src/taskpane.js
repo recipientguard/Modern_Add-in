@@ -127,44 +127,126 @@ function renderReviewFromContext() {
 
     panel.hidden = false;
     panel.scrollIntoView({ block: "start" });
+
+    // Present the review as a centered modal (closer to the Classic form). The
+    // inline panel above stays as the fallback if the dialog can't open.
+    openReviewDialog(risks);
   });
+}
+
+// Open the centered review dialog and host its message channel. The dialog has
+// no access to the mail item, so it posts actions back here and we act on them.
+let reviewDialog = null;
+function openReviewDialog(risks) {
+  const ui = Office.context.ui;
+  if (!ui || typeof ui.displayDialogAsync !== "function") return; // inline panel is the fallback
+  const url = window.location.origin + "/src/review-dialog.html?v=20260714-4";
+  const items = risks.map(describeRisk);
+
+  ui.displayDialogAsync(url, { height: 55, width: 42, displayInIframe: true }, (res) => {
+    if (res.status !== Office.AsyncResultStatus.Succeeded || !res.value) return;
+    const dialog = res.value;
+    reviewDialog = dialog;
+    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => handleDialogMessage(dialog, items, arg.message));
+    dialog.addEventHandler(Office.EventType.DialogEventReceived, () => { reviewDialog = null; });
+  });
+}
+
+function handleDialogMessage(dialog, items, raw) {
+  let msg;
+  try {
+    msg = JSON.parse(raw);
+  } catch (error) {
+    return;
+  }
+  const RG = window.RecipientGuardPoc;
+
+  if (msg.action === "ready") {
+    // Hand the dialog its findings. If messageChild isn't supported, the dialog
+    // shows its own "use the panel" notice and the inline panel covers it.
+    try {
+      dialog.messageChild(JSON.stringify({ type: "payload", items: items }));
+    } catch (error) {
+      /* older Dialog API — fallback handled in the dialog */
+    }
+  } else if (msg.action === "cancel") {
+    safeCloseReviewDialog(dialog);
+  } else if (msg.action === "whitelist") {
+    RG.addToWhitelist(msg.email).then(() => {
+      renderAnalysis();
+      try {
+        dialog.messageChild(JSON.stringify({ type: "whitelisted", email: msg.email }));
+      } catch (error) {
+        /* no ack channel — the pane list still refreshed */
+      }
+    });
+  } else if (msg.action === "send") {
+    // One-shot bypass so this send passes without re-prompting, then send.
+    RG.setSendBypass().then(() => {
+      const item = Office.context.mailbox.item;
+      safeCloseReviewDialog(dialog);
+      if (item && typeof item.sendAsync === "function") {
+        item.sendAsync((r) => {
+          if (r && r.status === Office.AsyncResultStatus.Failed) RG.clearSendBypass();
+        });
+      }
+    });
+  }
+}
+
+function safeCloseReviewDialog(dialog) {
+  try {
+    dialog.close();
+  } catch (error) {
+    /* already closed */
+  }
+  reviewDialog = null;
+}
+
+// One source of truth for how a finding reads: title, detail line, and (for the
+// single-subject rules) which address a whitelist action would target. Group
+// rules (same display name / username) span several addresses, so whitelisting
+// would be ambiguous — no whitelistEmail. Used by the pane rows AND the dialog
+// payload so both surfaces word findings identically.
+function describeRisk(risk) {
+  const RG = window.RecipientGuardPoc;
+  let title;
+  let detail = (risk.emails || []).join(", ");
+  let whitelistEmail = null;
+  if (risk.ruleId === "known_alternative") {
+    title = "Possibly wrong recipient: " + risk.emails[0];
+    detail = "You usually use: " + (risk.alternatives || []).map((a) => {
+      return a.email + " (" + RG.describeAlternative(a) + ")";
+    }).join(", ");
+    whitelistEmail = risk.emails[0];
+  } else if (risk.ruleId === "same_display_name") {
+    title = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
+  } else if (risk.ruleId === "same_localpart_different_domain") {
+    title = 'Same username, different domains: "' + risk.localPart + '"';
+  } else {
+    title = "External recipient";
+    whitelistEmail = (risk.emails || [])[0];
+  }
+  return { title, detail, whitelistEmail };
 }
 
 // Build one flagged-recipient row. Shared by the live "Check recipients" list
 // and the review-before-sending panel so both explain a finding identically.
 function buildRiskRow(risk) {
-  const RG = window.RecipientGuardPoc;
+  const d = describeRisk(risk);
   const row = document.createElement("div");
   row.className = "recipient external";
 
   const title = document.createElement("strong");
-  let metaText = (risk.emails || []).join(", ");
-  if (risk.ruleId === "known_alternative") {
-    title.textContent = "Possibly wrong recipient: " + risk.emails[0];
-    metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
-      return a.email + " (" + RG.describeAlternative(a) + ")";
-    }).join(", ");
-  } else if (risk.ruleId === "same_display_name") {
-    title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
-  } else if (risk.ruleId === "same_localpart_different_domain") {
-    title.textContent = 'Same username, different domains: "' + risk.localPart + '"';
-  } else {
-    title.textContent = "External recipient";
-  }
+  title.textContent = d.title;
   row.appendChild(title);
 
   const meta = document.createElement("div");
   meta.className = "muted";
-  meta.textContent = metaText;
+  meta.textContent = d.detail;
   row.appendChild(meta);
 
-  // Per-address "don't warn again" for the single-subject rules (the flagged
-  // address is unambiguous). Group rules (same display name / username) involve
-  // several addresses, so a single whitelist action would be ambiguous — skip.
-  if (risk.ruleId === "known_alternative" || risk.ruleId === "external_domain") {
-    const email = (risk.emails || [])[0];
-    if (email) row.appendChild(buildWhitelistButton(email, row, meta));
-  }
+  if (d.whitelistEmail) row.appendChild(buildWhitelistButton(d.whitelistEmail, row, meta));
   return row;
 }
 

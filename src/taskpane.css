@@ -164,3 +164,30 @@ button.secondary:hover {
 .review-actions #reviewStatus {
   flex-basis: 100%;
 }
+
+/* Centered review dialog (displayDialogAsync) */
+.dialog {
+  padding: 18px;
+}
+
+.dialog h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.dialog > p {
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+#dlgStatus {
+  margin-top: 10px;
+}
