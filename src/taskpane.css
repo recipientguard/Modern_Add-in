@@ -10,6 +10,12 @@ body {
   background: #ffffff;
 }
 
+/* The hidden attribute must win even over elements with an explicit display
+   (e.g. .dialog-actions uses display:flex, which would otherwise show through). */
+[hidden] {
+  display: none !important;
+}
+
 .shell {
   padding: 18px;
 }
