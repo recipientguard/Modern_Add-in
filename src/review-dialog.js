@@ -8,13 +8,18 @@
 (function () {
   "use strict";
 
+  // Findings + the full recipient list, cached so the delay view can list
+  // everyone and Cancel can restore the review view.
+  var state = { items: [], recipients: [] };
+  var countdownTimer = null;
+
   function post(obj) {
     try { Office.context.ui.messageParent(JSON.stringify(obj)); } catch (e) { /* ignore */ }
   }
 
   Office.onReady(function () {
-    document.getElementById("dlgSend").addEventListener("click", function () { startSend(0); });
-    document.getElementById("dlgDelay").addEventListener("click", function () { startSend(60); });
+    document.getElementById("dlgSend").addEventListener("click", function () { post({ action: "send" }); disableActions(); status("Sending…"); });
+    document.getElementById("dlgDelay").addEventListener("click", showDelayConfirmation);
     document.getElementById("dlgCancel").addEventListener("click", function () { post({ action: "cancel" }); });
 
     try {
@@ -35,11 +40,23 @@
   function onParentMessage(arg) {
     var msg;
     try { msg = JSON.parse(arg.message); } catch (e) { return; }
-    if (msg.type === "payload") render(msg.items || []);
-    else if (msg.type === "whitelisted") markWhitelisted(msg.email);
+    if (msg.type === "payload") {
+      state.items = msg.items || [];
+      state.recipients = msg.recipients || [];
+      renderReview();
+    } else if (msg.type === "whitelisted") {
+      markWhitelisted(msg.email);
+    }
   }
 
-  function render(items) {
+  // --- review view ---
+
+  function renderReview() {
+    document.getElementById("dlgTitle").textContent = "Review before sending";
+    document.getElementById("dlgIntro").textContent = "Recipient Guard paused a send. Please check the recipients are correct.";
+    document.getElementById("dlgActions").hidden = false;
+    status("");
+
     var body = document.getElementById("dlgBody");
     body.innerHTML = "";
     body.className = "";
@@ -47,14 +64,14 @@
 
     var summary = document.createElement("div");
     summary.className = "check-summary warning";
-    summary.textContent = items.length === 1
+    summary.textContent = state.items.length === 1
       ? "1 recipient to review before sending"
-      : items.length + " recipients to review before sending";
+      : state.items.length + " recipients to review before sending";
     body.appendChild(summary);
 
     var list = document.createElement("div");
     list.className = "recipient-list";
-    items.forEach(function (it) {
+    state.items.forEach(function (it) {
       var row = document.createElement("div");
       row.className = "recipient external";
       row.setAttribute("data-email", it.whitelistEmail || "");
@@ -98,33 +115,60 @@
     }
   }
 
-  var countdownTimer = null;
-  function startSend(delaySeconds) {
-    var status = document.getElementById("dlgStatus");
-    setSendButtonsDisabled(true);
+  // --- delay-send confirmation view ---
+  // Lists ALL recipients clearly with a countdown and a Cancel button. On
+  // completion it posts the send; Cancel returns to the review view.
 
-    if (!delaySeconds) {
-      status.textContent = "Sending…";
-      post({ action: "send" });
-      return;
+  function showDelayConfirmation() {
+    document.getElementById("dlgTitle").textContent = "Sending in 60 seconds";
+    document.getElementById("dlgIntro").textContent = "This message will be sent to the recipients below. Cancel if anything looks wrong.";
+    document.getElementById("dlgActions").hidden = true;
+
+    var body = document.getElementById("dlgBody");
+    body.innerHTML = "";
+    body.className = "";
+
+    var list = document.createElement("div");
+    list.className = "recipient-list";
+    if (state.recipients.length === 0) {
+      var none = document.createElement("div");
+      none.className = "muted";
+      none.textContent = "(Recipient list unavailable.)";
+      list.appendChild(none);
     }
+    state.recipients.forEach(function (rcpt) {
+      var row = document.createElement("div");
+      row.className = "recipient";
+      var addr = document.createElement("strong");
+      addr.textContent = rcpt.email;
+      row.appendChild(addr);
+      if (rcpt.type) {
+        var badge = document.createElement("span");
+        badge.className = "badge-muted";
+        badge.textContent = rcpt.type;
+        row.appendChild(badge);
+      }
+      list.appendChild(row);
+    });
+    body.appendChild(list);
 
-    var remaining = delaySeconds;
-    status.innerHTML = "";
+    var remaining = 60;
+    var statusEl = document.getElementById("dlgStatus");
+    statusEl.innerHTML = "";
     var label = document.createElement("span");
     label.textContent = "Sending in " + remaining + "s… ";
     var cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.className = "linklike";
-    cancel.textContent = "Cancel";
-    status.appendChild(label);
-    status.appendChild(cancel);
+    cancel.textContent = "Cancel send";
+    statusEl.appendChild(label);
+    statusEl.appendChild(cancel);
 
     countdownTimer = setInterval(function () {
       remaining -= 1;
       if (remaining <= 0) {
         clearInterval(countdownTimer);
-        status.textContent = "Sending…";
+        countdownTimer = null;
+        statusEl.textContent = "Sending…";
         post({ action: "send" });
         return;
       }
@@ -132,16 +176,21 @@
     }, 1000);
 
     cancel.addEventListener("click", function () {
-      clearInterval(countdownTimer);
-      status.textContent = "";
-      setSendButtonsDisabled(false);
+      if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+      renderReview();
     });
   }
 
-  function setSendButtonsDisabled(disabled) {
+  // --- helpers ---
+
+  function disableActions() {
     ["dlgSend", "dlgDelay"].forEach(function (id) {
       var b = document.getElementById(id);
-      if (b) b.disabled = disabled;
+      if (b) b.disabled = true;
     });
+  }
+
+  function status(text) {
+    document.getElementById("dlgStatus").textContent = text;
   }
 })();

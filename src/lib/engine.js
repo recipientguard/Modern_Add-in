@@ -409,15 +409,6 @@ function computeRisks(recipients, internalDomain, knownIdentities, whitelist) {
 
 // --- Smart Alert / task-pane message ---
 
-// One place for the "why this is an alternative" wording, shared by the send
-// dialog message and the task-pane review list. Returns bare text; callers add
-// their own punctuation/parentheses.
-function describeAlternative(alt) {
-  if (alt.byName && alt.byPrefix) return "same display name & username";
-  if (alt.byName) return "same display name";
-  return "same username";
-}
-
 function listEmails(lines, emails) {
   emails.slice(0, MAX_EMAILS_PER_RISK).forEach(function (email) { lines.push("  " + email); });
   if (emails.length > MAX_EMAILS_PER_RISK) {
@@ -446,7 +437,7 @@ function buildAlertMessage(risks) {
     lines.push("Sending to: " + r.emails[0]);
     lines.push("You usually use:");
     r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
-      lines.push("  " + alt.email + "  (" + describeAlternative(alt) + ")");
+      lines.push("  " + alt.email);
     });
     if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
       lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");

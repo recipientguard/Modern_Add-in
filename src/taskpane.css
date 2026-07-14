@@ -123,6 +123,14 @@ button:disabled {
   font-weight: 650;
 }
 
+.badge-muted {
+  display: inline-block;
+  margin-left: 8px;
+  color: #605e5c;
+  font-weight: 650;
+  font-size: 12px;
+}
+
 .recipient.whitelisted strong {
   color: #0b6a0b;
 }

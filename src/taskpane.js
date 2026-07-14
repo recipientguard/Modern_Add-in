@@ -140,19 +140,23 @@ let reviewDialog = null;
 function openReviewDialog(risks) {
   const ui = Office.context.ui;
   if (!ui || typeof ui.displayDialogAsync !== "function") return; // inline panel is the fallback
-  const url = window.location.origin + "/src/review-dialog.html?v=20260714-4";
+  const url = window.location.origin + "/src/review-dialog.html?v=20260714-6";
   const items = risks.map(describeRisk);
+  // Fetch ALL recipients in parallel so the delay-send view can list everyone.
+  const recipientsPromise = window.RecipientGuardPoc.analyzeCurrentMessage()
+    .then((a) => (a.recipients || []).map((r) => ({ email: r.email, type: r.type })))
+    .catch(() => []);
 
   ui.displayDialogAsync(url, { height: 55, width: 42, displayInIframe: true }, (res) => {
     if (res.status !== Office.AsyncResultStatus.Succeeded || !res.value) return;
     const dialog = res.value;
     reviewDialog = dialog;
-    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => handleDialogMessage(dialog, items, arg.message));
+    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => handleDialogMessage(dialog, items, recipientsPromise, arg.message));
     dialog.addEventHandler(Office.EventType.DialogEventReceived, () => { reviewDialog = null; });
   });
 }
 
-function handleDialogMessage(dialog, items, raw) {
+function handleDialogMessage(dialog, items, recipientsPromise, raw) {
   let msg;
   try {
     msg = JSON.parse(raw);
@@ -162,13 +166,16 @@ function handleDialogMessage(dialog, items, raw) {
   const RG = window.RecipientGuardPoc;
 
   if (msg.action === "ready") {
-    // Hand the dialog its findings. If messageChild isn't supported, the dialog
-    // shows its own "use the panel" notice and the inline panel covers it.
-    try {
-      dialog.messageChild(JSON.stringify({ type: "payload", items: items }));
-    } catch (error) {
-      /* older Dialog API — fallback handled in the dialog */
-    }
+    // Hand the dialog its findings + full recipient list. If messageChild isn't
+    // supported, the dialog shows its "use the panel" notice and the inline
+    // panel covers it.
+    recipientsPromise.then((recipients) => {
+      try {
+        dialog.messageChild(JSON.stringify({ type: "payload", items: items, recipients: recipients }));
+      } catch (error) {
+        /* older Dialog API — fallback handled in the dialog */
+      }
+    });
   } else if (msg.action === "cancel") {
     safeCloseReviewDialog(dialog);
   } else if (msg.action === "whitelist") {
@@ -209,15 +216,12 @@ function safeCloseReviewDialog(dialog) {
 // would be ambiguous — no whitelistEmail. Used by the pane rows AND the dialog
 // payload so both surfaces word findings identically.
 function describeRisk(risk) {
-  const RG = window.RecipientGuardPoc;
   let title;
   let detail = (risk.emails || []).join(", ");
   let whitelistEmail = null;
   if (risk.ruleId === "known_alternative") {
     title = "Possibly wrong recipient: " + risk.emails[0];
-    detail = "You usually use: " + (risk.alternatives || []).map((a) => {
-      return a.email + " (" + RG.describeAlternative(a) + ")";
-    }).join(", ");
+    detail = "You usually use: " + (risk.alternatives || []).map((a) => a.email).join(", ");
     whitelistEmail = risk.emails[0];
   } else if (risk.ruleId === "same_display_name") {
     title = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
