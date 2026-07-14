@@ -140,7 +140,7 @@ let reviewDialog = null;
 function openReviewDialog(risks) {
   const ui = Office.context.ui;
   if (!ui || typeof ui.displayDialogAsync !== "function") return; // inline panel is the fallback
-  const url = window.location.origin + "/src/review-dialog.html?v=20260714-7";
+  const url = window.location.origin + "/src/review-dialog.html?v=20260714-8";
   const items = risks.map(describeRisk);
   // Fetch ALL recipients in parallel so the delay-send view can list everyone.
   const recipientsPromise = window.RecipientGuardPoc.analyzeCurrentMessage()

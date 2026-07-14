@@ -101,6 +101,42 @@
       list.appendChild(row);
     });
     body.appendChild(list);
+
+    // Full recipient list, so the user sees everyone this is going to.
+    var sentHeading = document.createElement("div");
+    sentHeading.className = "list-heading";
+    sentHeading.textContent = "This message will be sent to:";
+    body.appendChild(sentHeading);
+    body.appendChild(buildRecipientList(state.recipients));
+  }
+
+  // Shared recipient list (email + To/Cc/Bcc label), used by the review view
+  // and the delay-send confirmation so both list recipients identically.
+  function buildRecipientList(recipients) {
+    var list = document.createElement("div");
+    list.className = "recipient-list";
+    if (!recipients || recipients.length === 0) {
+      var none = document.createElement("div");
+      none.className = "muted";
+      none.textContent = "(Recipient list unavailable.)";
+      list.appendChild(none);
+      return list;
+    }
+    recipients.forEach(function (rcpt) {
+      var row = document.createElement("div");
+      row.className = "recipient";
+      var addr = document.createElement("strong");
+      addr.textContent = rcpt.email;
+      row.appendChild(addr);
+      if (rcpt.type) {
+        var badge = document.createElement("span");
+        badge.className = "badge-muted";
+        badge.textContent = rcpt.type;
+        row.appendChild(badge);
+      }
+      list.appendChild(row);
+    });
+    return list;
   }
 
   function markWhitelisted(email) {
@@ -127,30 +163,7 @@
     var body = document.getElementById("dlgBody");
     body.innerHTML = "";
     body.className = "";
-
-    var list = document.createElement("div");
-    list.className = "recipient-list";
-    if (state.recipients.length === 0) {
-      var none = document.createElement("div");
-      none.className = "muted";
-      none.textContent = "(Recipient list unavailable.)";
-      list.appendChild(none);
-    }
-    state.recipients.forEach(function (rcpt) {
-      var row = document.createElement("div");
-      row.className = "recipient";
-      var addr = document.createElement("strong");
-      addr.textContent = rcpt.email;
-      row.appendChild(addr);
-      if (rcpt.type) {
-        var badge = document.createElement("span");
-        badge.className = "badge-muted";
-        badge.textContent = rcpt.type;
-        row.appendChild(badge);
-      }
-      list.appendChild(row);
-    });
-    body.appendChild(list);
+    body.appendChild(buildRecipientList(state.recipients));
 
     var remaining = 60;
     var statusEl = document.getElementById("dlgStatus");
