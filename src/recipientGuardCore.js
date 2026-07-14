@@ -18,6 +18,12 @@
 
   var RECIPIENT_READ_TIMEOUT_MS = 1200;
   var MAX_EMAILS_PER_RISK = 6;
+  var MAX_CONTEXT_RISKS = 20; // cap findings serialized into the Smart Alert contextData
+
+  // The task-pane button the Smart Alert hands off to (must match the <Control>
+  // id in the manifest). Passing this as commandId in event.completed lets the
+  // block dialog offer "open the pane" for the full review list.
+  var PANE_COMMAND_ID = "RecipientGuard.OpenPane";
 
   // --- normalisation helpers (ported from Classic RecipientAnalyzer) ---
 
@@ -317,6 +323,15 @@
 
   // --- Smart Alert / task-pane message ---
 
+  // One place for the "why this is an alternative" wording, shared by the send
+  // dialog message and the task-pane review list. Returns bare text; callers add
+  // their own punctuation/parentheses.
+  function describeAlternative(alt) {
+    if (alt.byName && alt.byPrefix) return "same display name & username";
+    if (alt.byName) return "same display name";
+    return "same username";
+  }
+
   function listEmails(lines, emails) {
     emails.slice(0, MAX_EMAILS_PER_RISK).forEach(function (email) { lines.push("  " + email); });
     if (emails.length > MAX_EMAILS_PER_RISK) {
@@ -345,15 +360,7 @@
       lines.push("Sending to: " + r.emails[0]);
       lines.push("You usually use:");
       r.alternatives.slice(0, MAX_EMAILS_PER_RISK).forEach(function (alt) {
-        var why;
-        if (alt.byName && alt.byPrefix) {
-          why = "(same display name & username)";
-        } else if (alt.byName) {
-          why = "(same display name)";
-        } else {
-          why = "(same username)";
-        }
-        lines.push("  " + alt.email + "  " + why);
+        lines.push("  " + alt.email + "  (" + describeAlternative(alt) + ")");
       });
       if (r.alternatives.length > MAX_EMAILS_PER_RISK) {
         lines.push("  +" + (r.alternatives.length - MAX_EMAILS_PER_RISK) + " more");
@@ -388,6 +395,25 @@
     return lines.join("\n");
   }
 
+  // Serialize the findings for the Smart Alert -> task pane handoff. Passed as
+  // contextData in event.completed and re-hydrated by the pane via
+  // getInitializationContextAsync to render the full review list. Kept compact and
+  // capped so it stays well under the platform's contextData size limit.
+  function buildContextData(risks) {
+    var trimmed = (risks || []).slice(0, MAX_CONTEXT_RISKS).map(function (risk) {
+      var out = { ruleId: risk.ruleId, emails: (risk.emails || []).slice(0, MAX_EMAILS_PER_RISK) };
+      if (risk.displayName) out.displayName = risk.displayName;
+      if (risk.localPart) out.localPart = risk.localPart;
+      if (risk.alternatives) {
+        out.alternatives = risk.alternatives.slice(0, MAX_EMAILS_PER_RISK).map(function (a) {
+          return { email: a.email, byName: a.byName, byPrefix: a.byPrefix };
+        });
+      }
+      return out;
+    });
+    return JSON.stringify({ v: 1, risks: trimmed });
+  }
+
   // Task-pane API surface. Combined with engine.js by the build into
   // src/recipientGuardCore.js. Exposes window.RecipientGuardPoc, consumed by
   // src/taskpane.js.
@@ -418,6 +444,7 @@
   globalScope.RecipientGuardPoc = {
     analyzeCurrentMessage: analyzeCurrentMessage,
     buildAlertMessage: buildAlertMessage,
+    describeAlternative: describeAlternative,
     computeRisks: computeRisks,
     getInternalDomain: getInternalDomain,
     getMailboxEmail: getMailboxEmail,

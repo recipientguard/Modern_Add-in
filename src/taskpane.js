@@ -2,12 +2,84 @@ Office.onReady(() => {
   const button = document.getElementById("analyzeButton");
   button.addEventListener("click", renderAnalysis);
   renderMailbox();
+  renderReviewFromContext();
   renderAnalysis();
   registerRecipientChangeHandler();
 
   const peopleButton = document.getElementById("loadPeopleButton");
   if (peopleButton) peopleButton.addEventListener("click", loadKnownPeople);
 });
+
+// When the pane is opened from the Smart Alert "review" button, Outlook hands us
+// the findings as an initialization context. Render them prominently at the top.
+// When the pane is opened normally there's no context, so this is a no-op.
+function renderReviewFromContext() {
+  const panel = document.getElementById("reviewPanel");
+  const item = Office.context.mailbox.item;
+  if (!panel || !item || typeof item.getInitializationContextAsync !== "function") return;
+
+  item.getInitializationContextAsync((asyncResult) => {
+    if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) return;
+    const raw = asyncResult.value;
+    if (!raw) return;
+
+    let risks;
+    try {
+      risks = (JSON.parse(raw) || {}).risks || [];
+    } catch (error) {
+      return;
+    }
+    if (risks.length === 0) return;
+
+    const body = document.getElementById("reviewBody");
+    body.innerHTML = "";
+
+    const summary = document.createElement("div");
+    summary.className = "check-summary warning";
+    summary.textContent = risks.length === 1
+      ? "1 recipient to review before sending"
+      : risks.length + " recipients to review before sending";
+    body.appendChild(summary);
+
+    const list = document.createElement("div");
+    list.className = "recipient-list";
+    risks.forEach((risk) => list.appendChild(buildRiskRow(risk)));
+    body.appendChild(list);
+
+    panel.hidden = false;
+    panel.scrollIntoView({ block: "start" });
+  });
+}
+
+// Build one flagged-recipient row. Shared by the live "Check recipients" list
+// and the review-before-sending panel so both explain a finding identically.
+function buildRiskRow(risk) {
+  const RG = window.RecipientGuardPoc;
+  const row = document.createElement("div");
+  row.className = "recipient external";
+
+  const title = document.createElement("strong");
+  let metaText = (risk.emails || []).join(", ");
+  if (risk.ruleId === "known_alternative") {
+    title.textContent = "Possibly wrong recipient: " + risk.emails[0];
+    metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
+      return a.email + " (" + RG.describeAlternative(a) + ")";
+    }).join(", ");
+  } else if (risk.ruleId === "same_display_name") {
+    title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
+  } else if (risk.ruleId === "same_localpart_different_domain") {
+    title.textContent = 'Same username, different domains: "' + risk.localPart + '"';
+  } else {
+    title.textContent = "External recipient";
+  }
+  row.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "muted";
+  meta.textContent = metaText;
+  row.appendChild(meta);
+  return row;
+}
 
 // A1 proof: acquire a Graph token via NAA and list the user's frequently-
 // contacted people. This is the known-identity source we'll compare against.
@@ -119,33 +191,7 @@ async function renderAnalysis() {
 
     const warnings = document.createElement("div");
     warnings.className = "recipient-list";
-    risks.forEach((risk) => {
-      const row = document.createElement("div");
-      row.className = "recipient external";
-      const title = document.createElement("strong");
-      let metaText = (risk.emails || []).join(", ");
-      if (risk.ruleId === "known_alternative") {
-        title.textContent = "Possibly wrong recipient: " + risk.emails[0];
-        metaText = "You usually use: " + (risk.alternatives || []).map((a) => {
-          const why = a.byName && a.byPrefix ? "same display name & username"
-            : a.byName ? "same display name" : "same username";
-          return a.email + " (" + why + ")";
-        }).join(", ");
-      } else if (risk.ruleId === "same_display_name") {
-        title.textContent = 'Same display name, different addresses: "' + (risk.displayName || "").trim() + '"';
-      } else if (risk.ruleId === "same_localpart_different_domain") {
-        title.textContent = 'Same username, different domains: "' + risk.localPart + '"';
-      } else {
-        title.textContent = "External recipient";
-      }
-      row.appendChild(title);
-
-      const meta = document.createElement("div");
-      meta.className = "muted";
-      meta.textContent = metaText;
-      row.appendChild(meta);
-      warnings.appendChild(row);
-    });
+    risks.forEach((risk) => warnings.appendChild(buildRiskRow(risk)));
 
     const list = document.createElement("div");
     list.className = "recipient-list";

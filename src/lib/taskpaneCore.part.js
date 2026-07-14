@@ -28,6 +28,7 @@ var globalScope = typeof window !== "undefined" ? window : globalThis;
 globalScope.RecipientGuardPoc = {
   analyzeCurrentMessage: analyzeCurrentMessage,
   buildAlertMessage: buildAlertMessage,
+  describeAlternative: describeAlternative,
   computeRisks: computeRisks,
   getInternalDomain: getInternalDomain,
   getMailboxEmail: getMailboxEmail,

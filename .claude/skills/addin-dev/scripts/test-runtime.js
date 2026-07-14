@@ -115,6 +115,22 @@ Promise.resolve()
       { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "external recipient", "AutoComplete", []);
   })
   .then(function () {
+    // Smart Alert -> task pane handoff: a block must carry commandId + parseable
+    // contextData so the pane can render the full review list.
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
+    setKnown([]);
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === false && result.commandId === "RecipientGuard.OpenPane";
+      var parsed = null;
+      try { parsed = JSON.parse(result.contextData); } catch (e) { /* stays null */ }
+      if (!parsed || !parsed.risks || parsed.risks.length === 0) ok = false;
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "block carries commandId + contextData for the review pane");
+    });
+  })
+  .then(function () {
     console.log("");
     if (failures === 0) { console.log("All analysis tests passed."); }
     else { console.log(failures + " test(s) FAILED."); process.exit(1); }

@@ -24,7 +24,15 @@ function onMessageSendDiagnostic(event) {
       if (risks.length === 0) {
         finish({ allowEvent: true });
       } else {
-        finish({ allowEvent: false, errorMessage: buildAlertMessage(risks) });
+        // Block, and offer to open the task pane for the full review list.
+        // commandId points at the manifest's task-pane button; contextData
+        // carries the findings the pane re-hydrates.
+        finish({
+          allowEvent: false,
+          errorMessage: buildAlertMessage(risks),
+          commandId: PANE_COMMAND_ID,
+          contextData: buildContextData(risks)
+        });
       }
     })["catch"](function () {
       clearTimeout(safety);
