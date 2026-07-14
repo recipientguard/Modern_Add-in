@@ -127,6 +127,19 @@ button:disabled {
   color: #c50f1f;
 }
 
+/* Flagged recipient in the combined dialog list — a calm amber caution, not
+   an alarming red, and no separate warning card. */
+.recipient.flagged {
+  border-left: 4px solid #d29200;
+  background: #fffdf5;
+}
+
+.flag-note {
+  color: #8a6d00;
+  font-weight: 650;
+  margin-top: 4px;
+}
+
 .badge {
   display: inline-block;
   margin-left: 8px;

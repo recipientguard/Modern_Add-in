@@ -130,33 +130,56 @@ function renderReviewFromContext() {
 
     // Present the review as a centered modal (closer to the Classic form). The
     // inline panel above stays as the fallback if the dialog can't open.
-    openReviewDialog(risks);
+    openReviewDialog();
   });
 }
 
 // Open the centered review dialog and host its message channel. The dialog has
 // no access to the mail item, so it posts actions back here and we act on them.
 let reviewDialog = null;
-function openReviewDialog(risks) {
+function openReviewDialog() {
   const ui = Office.context.ui;
   if (!ui || typeof ui.displayDialogAsync !== "function") return; // inline panel is the fallback
-  const url = window.location.origin + "/src/review-dialog.html?v=20260714-8";
-  const items = risks.map(describeRisk);
-  // Fetch ALL recipients in parallel so the delay-send view can list everyone.
+  const url = window.location.origin + "/src/review-dialog.html?v=20260714-9";
+  // One recipient-centric list: every recipient, flagged ones annotated inline.
   const recipientsPromise = window.RecipientGuardPoc.analyzeCurrentMessage()
-    .then((a) => (a.recipients || []).map((r) => ({ email: r.email, type: r.type })))
+    .then((a) => buildDialogRecipients(a.risks || [], a.recipients || []))
     .catch(() => []);
 
-  ui.displayDialogAsync(url, { height: 55, width: 42, displayInIframe: true }, (res) => {
+  ui.displayDialogAsync(url, { height: 52, width: 42, displayInIframe: true }, (res) => {
     if (res.status !== Office.AsyncResultStatus.Succeeded || !res.value) return;
     const dialog = res.value;
     reviewDialog = dialog;
-    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => handleDialogMessage(dialog, items, recipientsPromise, arg.message));
+    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => handleDialogMessage(dialog, recipientsPromise, arg.message));
     dialog.addEventHandler(Office.EventType.DialogEventReceived, () => { reviewDialog = null; });
   });
 }
 
-function handleDialogMessage(dialog, items, recipientsPromise, raw) {
+// Annotate every recipient with whether/why it's flagged, so the dialog shows a
+// single combined list instead of a separate red findings card + a plain list.
+function buildDialogRecipients(risks, recipients) {
+  const noteByEmail = Object.create(null);
+  risks.forEach((risk) => {
+    let note = null;
+    if (risk.ruleId === "known_alternative") note = "You don't usually email this address";
+    else if (risk.ruleId === "same_display_name") note = "Shares a display name with another recipient";
+    else if (risk.ruleId === "same_localpart_different_domain") note = "Same username as another recipient";
+    else if (risk.ruleId === "external_domain") note = "Outside your organisation";
+    if (!note) return;
+    (risk.emails || []).forEach((email) => {
+      if (!noteByEmail[email]) noteByEmail[email] = note; // first (strongest) wins; condense() prevents overlap
+    });
+  });
+  return recipients.map((r) => ({
+    email: r.email,
+    type: r.type,
+    flagged: Boolean(noteByEmail[r.email]),
+    note: noteByEmail[r.email] || null,
+    whitelistEmail: noteByEmail[r.email] ? r.email : null
+  }));
+}
+
+function handleDialogMessage(dialog, recipientsPromise, raw) {
   let msg;
   try {
     msg = JSON.parse(raw);
@@ -166,12 +189,12 @@ function handleDialogMessage(dialog, items, recipientsPromise, raw) {
   const RG = window.RecipientGuardPoc;
 
   if (msg.action === "ready") {
-    // Hand the dialog its findings + full recipient list. If messageChild isn't
+    // Hand the dialog the annotated recipient list. If messageChild isn't
     // supported, the dialog shows its "use the panel" notice and the inline
     // panel covers it.
     recipientsPromise.then((recipients) => {
       try {
-        dialog.messageChild(JSON.stringify({ type: "payload", items: items, recipients: recipients }));
+        dialog.messageChild(JSON.stringify({ type: "payload", recipients: recipients }));
       } catch (error) {
         /* older Dialog API — fallback handled in the dialog */
       }

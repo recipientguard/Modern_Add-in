@@ -8,9 +8,9 @@
 (function () {
   "use strict";
 
-  // Findings + the full recipient list, cached so the delay view can list
-  // everyone and Cancel can restore the review view.
-  var state = { items: [], recipients: [] };
+  // The full recipient list (each annotated with flagged/note), cached so the
+  // delay view can reuse it and Cancel can restore the review view.
+  var state = { recipients: [] };
   var countdownTimer = null;
 
   function post(obj) {
@@ -41,7 +41,6 @@
     var msg;
     try { msg = JSON.parse(arg.message); } catch (e) { return; }
     if (msg.type === "payload") {
-      state.items = msg.items || [];
       state.recipients = msg.recipients || [];
       renderReview();
     } else if (msg.type === "whitelisted") {
@@ -49,7 +48,7 @@
     }
   }
 
-  // --- review view ---
+  // --- review view: one combined recipient list, flagged rows annotated ---
 
   function renderReview() {
     document.getElementById("dlgTitle").textContent = "Review before sending";
@@ -62,57 +61,16 @@
     body.className = "";
     body.setAttribute("data-loaded", "1");
 
-    var summary = document.createElement("div");
-    summary.className = "check-summary warning";
-    summary.textContent = state.items.length === 1
-      ? "1 recipient to review before sending"
-      : state.items.length + " recipients to review before sending";
-    body.appendChild(summary);
-
-    var list = document.createElement("div");
-    list.className = "recipient-list";
-    state.items.forEach(function (it) {
-      var row = document.createElement("div");
-      row.className = "recipient external";
-      row.setAttribute("data-email", it.whitelistEmail || "");
-
-      var title = document.createElement("strong");
-      title.textContent = it.title;
-      row.appendChild(title);
-
-      if (it.detail) {
-        var meta = document.createElement("div");
-        meta.className = "muted";
-        meta.textContent = it.detail;
-        row.appendChild(meta);
-      }
-
-      if (it.whitelistEmail) {
-        var wl = document.createElement("button");
-        wl.type = "button";
-        wl.className = "linklike";
-        wl.textContent = "Don't warn about this address";
-        wl.addEventListener("click", function () {
-          wl.disabled = true;
-          post({ action: "whitelist", email: it.whitelistEmail });
-        });
-        row.appendChild(wl);
-      }
-      list.appendChild(row);
-    });
-    body.appendChild(list);
-
-    // Full recipient list, so the user sees everyone this is going to.
-    var sentHeading = document.createElement("div");
-    sentHeading.className = "list-heading";
-    sentHeading.textContent = "This message will be sent to:";
-    body.appendChild(sentHeading);
-    body.appendChild(buildRecipientList(state.recipients));
+    var heading = document.createElement("div");
+    heading.className = "list-heading";
+    heading.textContent = "This message will be sent to:";
+    body.appendChild(heading);
+    body.appendChild(buildRecipientList(state.recipients, true));
   }
 
-  // Shared recipient list (email + To/Cc/Bcc label), used by the review view
-  // and the delay-send confirmation so both list recipients identically.
-  function buildRecipientList(recipients) {
+  // Shared recipient list. showFlags=true annotates flagged recipients with a
+  // reason + whitelist link; false renders a plain "who it's going to" list.
+  function buildRecipientList(recipients, showFlags) {
     var list = document.createElement("div");
     list.className = "recipient-list";
     if (!recipients || recipients.length === 0) {
@@ -124,15 +82,38 @@
     }
     recipients.forEach(function (rcpt) {
       var row = document.createElement("div");
-      row.className = "recipient";
+      row.className = "recipient" + (showFlags && rcpt.flagged ? " flagged" : "");
+      row.setAttribute("data-email", rcpt.email);
+
+      var head = document.createElement("div");
       var addr = document.createElement("strong");
       addr.textContent = rcpt.email;
-      row.appendChild(addr);
+      head.appendChild(addr);
       if (rcpt.type) {
         var badge = document.createElement("span");
         badge.className = "badge-muted";
         badge.textContent = rcpt.type;
-        row.appendChild(badge);
+        head.appendChild(badge);
+      }
+      row.appendChild(head);
+
+      if (showFlags && rcpt.flagged) {
+        var note = document.createElement("div");
+        note.className = "flag-note";
+        note.textContent = rcpt.note || "Possibly the wrong recipient";
+        row.appendChild(note);
+
+        if (rcpt.whitelistEmail) {
+          var wl = document.createElement("button");
+          wl.type = "button";
+          wl.className = "linklike";
+          wl.textContent = "Don't warn about this address";
+          wl.addEventListener("click", function () {
+            wl.disabled = true;
+            post({ action: "whitelist", email: rcpt.whitelistEmail });
+          });
+          row.appendChild(wl);
+        }
       }
       list.appendChild(row);
     });
@@ -143,16 +124,16 @@
     var rows = document.querySelectorAll(".recipient[data-email]");
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].getAttribute("data-email") !== email) continue;
-      rows[i].className = "recipient whitelisted";
+      rows[i].className = "recipient";
+      var note = rows[i].querySelector(".flag-note");
+      if (note) note.parentNode.removeChild(note);
       var btn = rows[i].querySelector("button.linklike");
       if (btn) btn.parentNode.removeChild(btn);
-      var note = rows[i].querySelector(".muted");
-      if (note) note.textContent = "Whitelisted — won't warn about " + email + " again";
     }
   }
 
   // --- delay-send confirmation view ---
-  // Lists ALL recipients clearly with a countdown and a Cancel button. On
+  // Lists ALL recipients (plainly) with a countdown and a Cancel button. On
   // completion it posts the send; Cancel returns to the review view.
 
   function showDelayConfirmation() {
@@ -163,7 +144,7 @@
     var body = document.getElementById("dlgBody");
     body.innerHTML = "";
     body.className = "";
-    body.appendChild(buildRecipientList(state.recipients));
+    body.appendChild(buildRecipientList(state.recipients, false));
 
     var remaining = 60;
     var statusEl = document.getElementById("dlgStatus");
