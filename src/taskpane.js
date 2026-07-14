@@ -268,12 +268,39 @@ function buildWhitelistButton(email, row, meta) {
   return link;
 }
 
+// Load the MSAL/NAA bundle on demand (it's ~652 KB, so we keep it off the
+// pane-open path and fetch it only when the user turns on smart detection).
+let naaLoadPromise = null;
+function ensureNaaLoaded() {
+  if (window.RGNaa) return Promise.resolve();
+  if (naaLoadPromise) return naaLoadPromise;
+  naaLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "./naa.bundle.js";
+    script.onload = () => resolve();
+    script.onerror = () => {
+      naaLoadPromise = null; // allow a retry on the next click
+      reject(new Error("Failed to load naa.bundle.js"));
+    };
+    document.head.appendChild(script);
+  });
+  return naaLoadPromise;
+}
+
 // A1 proof: acquire a Graph token via NAA and list the user's frequently-
 // contacted people. This is the known-identity source we'll compare against.
 async function loadKnownPeople() {
   const out = document.getElementById("peopleResults");
   const button = document.getElementById("loadPeopleButton");
 
+  out.className = "muted";
+  out.textContent = "Preparing sign-in…";
+  try {
+    await ensureNaaLoaded();
+  } catch (error) {
+    out.textContent = "Couldn't load the sign-in module. Check your connection and try again.";
+    return;
+  }
   if (!window.RGNaa) {
     out.textContent = "Auth module not loaded.";
     return;
