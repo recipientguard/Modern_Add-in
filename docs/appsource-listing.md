@@ -88,10 +88,14 @@ Publisher: **RecipientGuard Ltd**. Free add-in, no in-app purchases.
 
 | Field | URL |
 |---|---|
-| Privacy policy | https://addin.recipientguard.co.uk/privacy.html |
-| Terms of use / EULA | https://addin.recipientguard.co.uk/terms.html |
-| Support | https://addin.recipientguard.co.uk/support.html |
-| Website / Home | https://recipientguard.co.uk/ |
+| Privacy policy | https://www.recipientguard.co.uk/privacy.html |
+| Terms of use / EULA | https://www.recipientguard.co.uk/terms.html |
+| Support | https://www.recipientguard.co.uk/support.html |
+| Website / Home | https://www.recipientguard.co.uk |
+
+`www` is canonical. The apex (`recipientguard.co.uk`) 301-redirects to it via GoDaddy
+forwarding, so use the **www** URLs here — validators and the Entra consent screen fetch
+these, and a direct 200 beats a redirect hop.
 
 ---
 

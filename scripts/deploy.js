@@ -37,7 +37,7 @@ const SITE_FILES = ["privacy.html", "terms.html", "support.html"];
 // the 300x300 AppSource store logo. Regenerate from assets/icon.svg: npm run icons
 const ICON_FILES = [
   "icon-16.png", "icon-32.png", "icon-64.png",
-  "icon-80.png", "icon-128.png", "icon-300.png"
+  "icon-80.png", "icon-128.png", "icon-215.png", "icon-300.png"
 ];
 
 const INDEX_HTML =
