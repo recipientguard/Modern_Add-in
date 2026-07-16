@@ -4,13 +4,13 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xsi:type="MailApp">
   <Id>2fbbe8b8-59cf-458e-8ba1-2bb45e1eed58</Id>
-  <Version>1.1.0.0</Version>
+  <Version>1.2.0.0</Version>
   <ProviderName>RecipientGuard Ltd</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Recipient Guard" />
   <Description DefaultValue="Warns you before sending to a likely wrong recipient picked from AutoComplete." />
-  <IconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
-  <HighResolutionIconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+  <IconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon-128.png" />
   <SupportUrl DefaultValue="https://addin.recipientguard.co.uk/support.html" />
   <AppDomains>
     <AppDomain>https://addin.recipientguard.co.uk</AppDomain>
@@ -74,9 +74,9 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
-        <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
-        <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+        <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Commands.Url" DefaultValue="https://addin.recipientguard.co.uk/src/send-test.html" />
@@ -141,9 +141,9 @@
       </Hosts>
       <Resources>
         <bt:Images>
-          <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
-          <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
-          <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+          <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-16.png" />
+          <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-32.png" />
+          <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon-80.png" />
         </bt:Images>
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://addin.recipientguard.co.uk/src/send-test.html" />

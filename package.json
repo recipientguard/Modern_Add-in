@@ -2,11 +2,12 @@
   "name": "recipient-guard-new-outlook-poc",
   "version": "0.1.0-poc",
   "private": true,
-  "description": "Recipient Guard proof of concept for New Outlook using Office.js Smart Alerts.",
+  "description": "Recipient Guard — Outlook add-in that warns you before sending to a likely wrong recipient.",
   "scripts": {
     "start": "node server.js",
     "build": "node scripts/build.js && npm run build:naa",
     "build:naa": "esbuild src/lib/naa.js --bundle --format=iife --target=es2017 --outfile=src/naa.bundle.js",
+    "icons": "node scripts/icons.js",
     "deploy": "node scripts/deploy.js",
     "test": "node .claude/skills/addin-dev/scripts/test-runtime.js"
   },

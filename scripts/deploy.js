@@ -33,6 +33,13 @@ const SRC_FILES = [
 // Public legal/support pages served at the site root.
 const SITE_FILES = ["privacy.html", "terms.html", "support.html"];
 
+// Icons referenced by the manifest (16/32/80 ribbon, 64 IconUrl, 128 hi-res) plus
+// the 300x300 AppSource store logo. Regenerate from assets/icon.svg: npm run icons
+const ICON_FILES = [
+  "icon-16.png", "icon-32.png", "icon-64.png",
+  "icon-80.png", "icon-128.png", "icon-300.png"
+];
+
 const INDEX_HTML =
   "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">" +
   "<title>Recipient Guard</title></head><body style=\"font-family:system-ui;max-width:40rem;margin:4rem auto;padding:0 1rem\">" +
@@ -50,8 +57,11 @@ fs.mkdirSync(path.join(dist, "src"), { recursive: true });
 fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
 SRC_FILES.forEach((f) => fs.copyFileSync(path.join(root, "src", f), path.join(dist, "src", f)));
 SITE_FILES.forEach((f) => fs.copyFileSync(path.join(root, "site", f), path.join(dist, f)));
-fs.copyFileSync(path.join(root, "assets", "icon.jpg"), path.join(dist, "assets", "icon.jpg"));
+ICON_FILES.forEach((f) => fs.copyFileSync(path.join(root, "assets", f), path.join(dist, "assets", f)));
 fs.writeFileSync(path.join(dist, "index.html"), INDEX_HTML);
+// Cache-Control: no-cache for the whole site. Outlook caches the runtime JS and
+// the pane hard; stale assets have cost us hours. Revalidation (304s) is cheap.
+fs.copyFileSync(path.join(root, "staticwebapp.config.json"), path.join(dist, "staticwebapp.config.json"));
 
 console.log("3/3  deploying to Static Web App...");
 // shell:true so Windows resolves az.cmd.

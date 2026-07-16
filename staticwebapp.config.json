@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemas.azure.com/staticwebapp.config.json",
+  "globalHeaders": {
+    "Cache-Control": "no-cache"
+  },
+  "mimeTypes": {
+    ".json": "application/json",
+    ".svg": "image/svg+xml"
+  }
+}

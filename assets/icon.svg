@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Recipient Guard mark: an envelope (email) with a shield badge (guarded).
+       Source of truth for the PNG icons — regenerate with: npm run icons -->
+
+  <!-- envelope body -->
+  <rect x="8" y="30" width="100" height="68" rx="8" fill="#0f6cbd"/>
+  <!-- envelope fold -->
+  <path d="M14 37 L58 71 L102 37"
+        fill="none" stroke="#ffffff" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- shield badge, bottom-right, with a white keyline so it reads against the envelope -->
+  <path d="M68 70 L94 61 L120 70 L120 92 C120 108 108 118 94 125 C80 118 68 108 68 92 Z"
+        fill="#107c10" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+  <!-- tick -->
+  <path d="M83 92 L91 100 L107 81"
+        fill="none" stroke="#ffffff" stroke-width="7.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
