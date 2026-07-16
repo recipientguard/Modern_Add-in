@@ -1,19 +1,24 @@
-// One-command deploy to the Azure Storage static website.
+// One-command deploy to Azure Static Web Apps (addin.recipientguard.co.uk).
 //   npm run deploy
 //
-// Steps: build (runtime + MSAL bundle) -> assemble dist/ -> CLEAN MIRROR to the
-// $web container (deletes stale blobs, uploads current, Cache-Control:no-cache).
+// Steps: build (runtime + MSAL bundle) -> assemble dist/ -> deploy dist/ to the
+// Static Web App production environment.
 //
-// Auth: uses `az --auth-mode key` (auto-retrieves the account key; needs the
-// listKeys permission your Azure role already has). Run `az login` first if
-// needed. On Windows the `$web` container name is passed literally via cmd.
+// Auth: the deployment token is read from `az` at run time and passed to the SWA
+// CLI via the SWA_CLI_DEPLOYMENT_TOKEN env var — never stored in the repo, never
+// printed, and not exposed in the process args. Run `az login` first if needed.
+//
+// History: previously deployed to an Azure Storage static website
+// (rgoutlookpoc0618). Storage can't serve HTTPS on a custom domain, so we moved to
+// Static Web Apps, which provides a free managed certificate for
+// addin.recipientguard.co.uk.
 
 const { execFileSync, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const ACCOUNT = "rgoutlookpoc0618";
-const CONTAINER = "$web";
+const SWA_NAME = "recipientguard-addin";
+const RESOURCE_GROUP = "recipientguard-rg";
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
 
@@ -25,39 +30,42 @@ const SRC_FILES = [
   "naa.bundle.js"
 ];
 
+// Public legal/support pages served at the site root.
+const SITE_FILES = ["privacy.html", "terms.html", "support.html"];
+
 const INDEX_HTML =
   "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">" +
   "<title>Recipient Guard</title></head><body style=\"font-family:system-ui;max-width:40rem;margin:4rem auto;padding:0 1rem\">" +
   "<h1>Recipient Guard</h1><p>Outlook add-in host. This site serves the add-in's pages; " +
-  "there is nothing to see here directly.</p></body></html>\n";
+  "there is nothing to see here directly.</p>" +
+  "<p><a href=\"/privacy.html\">Privacy</a> &middot; <a href=\"/terms.html\">Terms</a> " +
+  "&middot; <a href=\"/support.html\">Support</a></p></body></html>\n";
 
-function az(args) {
-  // shell:true so Windows resolves az.cmd; on Windows the shell is cmd, where
-  // "$web" is a literal (not expanded).
-  execFileSync("az", args, { stdio: "inherit", shell: true });
-}
-
-console.log("1/4  building...");
+console.log("1/3  building...");
 execSync("npm run build", { cwd: root, stdio: "inherit" });
 
-console.log("2/4  assembling dist/...");
+console.log("2/3  assembling dist/...");
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(path.join(dist, "src"), { recursive: true });
 fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
 SRC_FILES.forEach((f) => fs.copyFileSync(path.join(root, "src", f), path.join(dist, "src", f)));
+SITE_FILES.forEach((f) => fs.copyFileSync(path.join(root, "site", f), path.join(dist, f)));
 fs.copyFileSync(path.join(root, "assets", "icon.jpg"), path.join(dist, "assets", "icon.jpg"));
 fs.writeFileSync(path.join(dist, "index.html"), INDEX_HTML);
-// Public legal/support pages (served at the site root for AppSource + consent).
-["privacy.html", "terms.html", "support.html"].forEach((f) =>
-  fs.copyFileSync(path.join(root, "site", f), path.join(dist, f)));
 
-console.log("3/4  clearing stale blobs in " + CONTAINER + "...");
-az(["storage", "blob", "delete-batch", "--account-name", ACCOUNT, "--auth-mode", "key",
-    "-s", CONTAINER, "--output", "none"]);
+console.log("3/3  deploying to Static Web App...");
+// shell:true so Windows resolves az.cmd.
+const token = execFileSync(
+  "az",
+  ["staticwebapp", "secrets", "list", "--name", SWA_NAME, "--resource-group", RESOURCE_GROUP,
+   "--query", "properties.apiKey", "-o", "tsv"],
+  { shell: true, encoding: "utf8" }
+).trim();
 
-console.log("4/4  uploading current build...");
-az(["storage", "blob", "upload-batch", "--account-name", ACCOUNT, "--auth-mode", "key",
-    "-d", CONTAINER, "-s", dist, "--overwrite", "--content-cache-control", "no-cache",
-    "--output", "none"]);
+execSync("npx -y @azure/static-web-apps-cli deploy ./dist --env production", {
+  cwd: root,
+  stdio: "inherit",
+  env: { ...process.env, SWA_CLI_DEPLOYMENT_TOKEN: token }
+});
 
-console.log("\nDeployed to https://" + ACCOUNT + ".z33.web.core.windows.net/");
+console.log("\nDeployed to https://addin.recipientguard.co.uk/");

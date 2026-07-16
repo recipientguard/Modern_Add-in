@@ -4,16 +4,16 @@
            xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
            xsi:type="MailApp">
   <Id>2fbbe8b8-59cf-458e-8ba1-2bb45e1eed58</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.1.0.0</Version>
   <ProviderName>RecipientGuard Ltd</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Recipient Guard" />
   <Description DefaultValue="Warns you before sending to a likely wrong recipient picked from AutoComplete." />
-  <IconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-  <HighResolutionIconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-  <SupportUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/support.html" />
+  <IconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+  <HighResolutionIconUrl DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+  <SupportUrl DefaultValue="https://addin.recipientguard.co.uk/support.html" />
   <AppDomains>
-    <AppDomain>https://rgoutlookpoc0618.z33.web.core.windows.net</AppDomain>
+    <AppDomain>https://addin.recipientguard.co.uk</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Mailbox" />
@@ -26,7 +26,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
+        <SourceLocation DefaultValue="https://addin.recipientguard.co.uk/src/taskpane.html" />
         <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -74,14 +74,14 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-        <bt:Image id="Icon.32" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-        <bt:Image id="Icon.80" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
+        <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+        <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+        <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/send-test.html" />
-        <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/sendTestRuntime.js" />
-        <bt:Url id="Taskpane.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
+        <bt:Url id="Commands.Url" DefaultValue="https://addin.recipientguard.co.uk/src/send-test.html" />
+        <bt:Url id="Commands.Script.Url" DefaultValue="https://addin.recipientguard.co.uk/src/sendTestRuntime.js" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://addin.recipientguard.co.uk/src/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="Group.Label" DefaultValue="Recipient Guard" />
@@ -141,14 +141,14 @@
       </Hosts>
       <Resources>
         <bt:Images>
-          <bt:Image id="Icon.16" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-          <bt:Image id="Icon.32" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-          <bt:Image id="Icon.80" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
+          <bt:Image id="Icon.16" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+          <bt:Image id="Icon.32" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
+          <bt:Image id="Icon.80" DefaultValue="https://addin.recipientguard.co.uk/assets/icon.jpg" />
         </bt:Images>
         <bt:Urls>
-          <bt:Url id="Commands.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/send-test.html" />
-          <bt:Url id="Commands.Script.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/sendTestRuntime.js" />
-          <bt:Url id="Taskpane.Url" DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
+          <bt:Url id="Commands.Url" DefaultValue="https://addin.recipientguard.co.uk/src/send-test.html" />
+          <bt:Url id="Commands.Script.Url" DefaultValue="https://addin.recipientguard.co.uk/src/sendTestRuntime.js" />
+          <bt:Url id="Taskpane.Url" DefaultValue="https://addin.recipientguard.co.uk/src/taskpane.html" />
         </bt:Urls>
         <bt:ShortStrings>
           <bt:String id="Group.Label" DefaultValue="Recipient Guard" />

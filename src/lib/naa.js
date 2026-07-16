@@ -9,7 +9,9 @@
 import { createNestablePublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 
 // Public client ID from the Entra app registration (client IDs are not secrets).
-const CLIENT_ID = "38d26461-6bd7-4497-b83e-3a34baa9c154";
+// Registered in the RecipientGuard Ltd tenant (multitenant, SPA redirect
+// brk-multihub://addin.recipientguard.co.uk).
+const CLIENT_ID = "7519a415-3e8b-4c8e-9599-740a658ae7a2";
 const GRAPH_SCOPES = ["People.Read", "User.Read"];
 
 let msalInstance;
