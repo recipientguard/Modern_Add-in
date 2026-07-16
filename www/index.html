@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Recipient Guard — stop sending email to the wrong person</title>
+<meta name="description" content="Recipient Guard is a free Outlook add-in that checks your recipients at send time and warns you when one looks like the wrong pick from AutoComplete. No server, no data leaves your Microsoft 365." />
+<link rel="icon" href="/assets/icon-64.png" />
+<meta property="og:title" content="Recipient Guard — stop sending email to the wrong person" />
+<meta property="og:description" content="A free Outlook add-in that catches wrong recipients before you hit send." />
+<meta property="og:type" content="website" />
+<style>
+  :root {
+    --blue: #0f6cbd;
+    --blue-dark: #115ea3;
+    --amber: #d29200;
+    --amber-text: #8a6d00;
+    --green: #107c10;
+    --ink: #1b1a19;
+    --muted: #605e5c;
+    --line: #e1dfdd;
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --soft: #f6f8fb;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f3f2f1; --muted: #a19f9d; --line: #3b3a39;
+      --bg: #1b1a19; --panel: #252423; --soft: #221f1e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+  a { color: var(--blue); }
+
+  /* header */
+  header { border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; gap: .6rem; padding: 1rem 0; }
+  .bar img { width: 30px; height: 30px; }
+  .bar strong { font-size: 1.05rem; font-weight: 650; }
+  .bar nav { margin-left: auto; display: flex; gap: 1.25rem; font-size: .92rem; }
+  .bar nav a { color: var(--muted); text-decoration: none; }
+  .bar nav a:hover { color: var(--ink); }
+  @media (max-width: 34rem) { .bar nav { display: none; } }
+
+  /* hero */
+  .hero { padding: 4rem 0 2.5rem; text-align: center; }
+  .hero h1 {
+    font-size: clamp(2rem, 5.5vw, 3.1rem); line-height: 1.15;
+    margin: 0 0 1rem; font-weight: 700; letter-spacing: -.02em;
+  }
+  .hero p.lead { font-size: clamp(1.05rem, 2.2vw, 1.3rem); color: var(--muted); margin: 0 auto 1.75rem; max-width: 40rem; }
+  .cta { display: inline-flex; align-items: center; gap: .5rem; background: var(--blue); color: #fff;
+         text-decoration: none; font-weight: 600; padding: .8rem 1.5rem; border-radius: 4px; }
+  .cta:hover { background: var(--blue-dark); }
+  .cta-note { display: block; margin-top: .75rem; font-size: .88rem; color: var(--muted); }
+
+  /* mockup */
+  .mock {
+    max-width: 34rem; margin: 3rem auto 0; text-align: left;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.14); padding: 1.4rem;
+  }
+  .mock h3 { margin: 0 0 .2rem; font-size: 1.15rem; }
+  .mock .sub { color: var(--muted); margin: 0 0 1rem; font-size: .92rem; }
+  .mock .listhead { font-weight: 650; margin: 0 0 .5rem; font-size: .92rem; }
+  .rcpt { border: 1px solid var(--line); border-radius: 4px; padding: .6rem .7rem; margin-bottom: .5rem; font-size: .92rem; }
+  .rcpt.flag { border-left: 4px solid var(--amber); background: color-mix(in srgb, var(--amber) 7%, var(--panel)); }
+  .rcpt .addr { font-weight: 650; }
+  .rcpt .tag { color: var(--muted); font-size: .78rem; font-weight: 650; margin-left: .4rem; }
+  .rcpt .why { color: var(--amber-text); font-weight: 650; font-size: .86rem; margin-top: .2rem; }
+  .rcpt .wl { color: var(--blue); font-size: .86rem; text-decoration: underline; margin-top: .2rem; display: inline-block; }
+  .btns { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+  .btn { font-size: .88rem; padding: .45rem .9rem; border-radius: 4px; border: 1px solid #8a8886; background: var(--panel); color: var(--ink); }
+  .btn.pri { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+
+  /* sections */
+  section { padding: 3.5rem 0; }
+  section.alt { background: var(--soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 .6rem; letter-spacing: -.01em; }
+  .sec-lead { color: var(--muted); margin: 0 0 2rem; max-width: 42rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1.25rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1.25rem; }
+  .card h3 { margin: 0 0 .4rem; font-size: 1.05rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .card .mono { font-family: ui-monospace, Consolas, monospace; font-size: .84rem; color: var(--ink); }
+
+  /* privacy */
+  .privacy { text-align: center; }
+  .privacy h2 { margin-bottom: 1rem; }
+  .privacy p { max-width: 44rem; margin: 0 auto 1rem; color: var(--muted); }
+  .privacy .big { font-size: 1.2rem; color: var(--ink); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--line); padding: 2.5rem 0; font-size: .88rem; color: var(--muted); }
+  footer .links { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  footer .links a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap bar">
+    <img src="/assets/icon-64.png" alt="" />
+    <strong>Recipient Guard</strong>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="/support.html">Support</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap hero">
+  <h1>Stop sending email to the wrong person.</h1>
+  <p class="lead">You type “Dave”. Outlook offers a Dave. It’s the wrong Dave.
+  Recipient Guard pauses the send and shows you exactly who’s about to receive your message.</p>
+  <a class="cta" href="#how">See how it works</a>
+  <span class="cta-note">Free Outlook add-in · coming to Microsoft AppSource</span>
+
+  <!-- Faithful recreation of the real review dialog -->
+  <div class="mock" role="img" aria-label="Recipient Guard review dialog showing a flagged recipient">
+    <h3>Review before sending</h3>
+    <p class="sub">Recipient Guard paused a send. Please check the recipients are correct.</p>
+    <p class="listhead">This message will be sent to:</p>
+    <div class="rcpt flag">
+      <div><span class="addr">john.doe@gmail.com</span><span class="tag">TO</span></div>
+      <div class="why">You don’t usually email this address</div>
+      <div class="wl">Don’t warn about this address</div>
+    </div>
+    <div class="rcpt">
+      <div><span class="addr">sarah.king@acme.com</span><span class="tag">CC</span></div>
+    </div>
+    <div class="btns">
+      <span class="btn pri">Send</span>
+      <span class="btn">Delay 1 min &amp; send</span>
+      <span class="btn">Cancel</span>
+    </div>
+  </div>
+</div>
+
+<section class="alt" id="how">
+  <div class="wrap">
+    <h2>The most common email mistake isn’t a typo</h2>
+    <p class="sec-lead">It’s AutoComplete. One wrong pick from a dropdown and a message meant for a
+    colleague goes to a stranger, a client, or someone’s personal address. Recipient Guard checks
+    the recipients the moment you hit Send — and only interrupts when something genuinely looks off.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>The wrong pick from AutoComplete</h3>
+        <p>You’re emailing an address you don’t normally use for that person — caught even when
+        it’s the only recipient on the message.</p>
+      </div>
+      <div class="card">
+        <h3>Look-alike recipients</h3>
+        <p>Two people sharing a display name, or the same username on different domains.<br />
+        <span class="mono">john.doe@acme.com</span> vs <span class="mono">john.doe@acme-invoices.com</span></p>
+      </div>
+      <div class="card">
+        <h3>External recipients</h3>
+        <p>Anyone outside your organisation gets flagged, so nothing leaves quietly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Built for the way you actually send</h2>
+    <p class="sec-lead">No setup, no configuration. It works from the moment it’s installed.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Review before sending</h3>
+        <p>See every recipient in one list, with the questionable one flagged and the reason why.</p>
+      </div>
+      <div class="card">
+        <h3>Delay 1 minute &amp; send</h3>
+        <p>A cooling-off window that lists everyone the message is going to — with a cancel button.</p>
+      </div>
+      <div class="card">
+        <h3>Don’t warn about this address</h3>
+        <p>Whitelist an address you email deliberately and it stops asking. Once.</p>
+      </div>
+      <div class="card">
+        <h3>Smart detection</h3>
+        <p>Optionally learns who you usually email, so it can spot a single wrong recipient.
+        One click to turn on.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt privacy" id="privacy">
+  <div class="wrap">
+    <h2>There is no Recipient Guard server</h2>
+    <p class="big">Your email never touches our infrastructure, because we don’t have any.</p>
+    <p>All recipient analysis runs locally, inside Outlook, on your device. The only thing stored —
+    your frequent-contact list and your whitelist — is kept inside your own Microsoft 365 mailbox
+    using Office roaming settings.</p>
+    <p><strong>No recipient data, contact data, or message content is ever sent to us or to any
+    third party. Message bodies and attachments are never read.</strong></p>
+    <p><a href="/privacy.html">Read the full privacy policy →</a></p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/support.html">Support</a>
+      <a href="mailto:support@recipientguard.co.uk">support@recipientguard.co.uk</a>
+    </div>
+    <div>© RecipientGuard Ltd. Registered in England and Wales, company number 17168880.</div>
+  </div>
+</footer>
+
+</body>
+</html>
