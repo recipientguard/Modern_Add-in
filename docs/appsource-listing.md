@@ -177,8 +177,6 @@ rejection cause:
 
 ## Open product questions
 
-- **"Smart detection (beta)"** — the pane still labels it *(beta)*. It's live-verified and
-  works; decide whether to drop "(beta)" before the listing goes live (it reads as
-  unfinished to a reviewer, but is honest). Currently left as-is.
+- ~~"Smart detection (beta)"~~ — **resolved 2026-07-16**: "(beta)" dropped from the pane.
 - **Apex site** — `recipientguard.co.uk` is used as the Home page URL but isn't serving a
   site yet. A one-page marketing site there would tidy the listing.
