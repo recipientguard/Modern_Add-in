@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recipient Guard — Privacy Policy</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: "Segoe UI", Arial, sans-serif; line-height: 1.6; color: #201f1e; background: #fff; max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1 { font-size: 1.9rem; margin: 0 0 .25rem; }
+    h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; }
+    .updated { color: #605e5c; margin: 0 0 2rem; }
+    ul { padding-left: 1.25rem; }
+    code { background: #f3f2f1; padding: .1rem .3rem; border-radius: 3px; }
+    a { color: #0f6cbd; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e1dfdd; background: #1b1a19; }
+      code { background: #323130; }
+      .updated { color: #a19f9d; }
+      a { color: #6cb8ff; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Recipient Guard — Privacy Policy</h1>
+  <p class="updated">Last updated: 15 July 2026</p>
+
+  <p>Recipient Guard is a Microsoft Outlook add-in that warns you at send time when
+  a recipient looks like it may have been chosen incorrectly (for example, picked
+  from AutoComplete). It is provided by <strong>RecipientGuard Ltd</strong>,
+  registered in England and Wales (company number 17168880). This policy explains
+  what the add-in accesses and how that information is handled.</p>
+
+  <h2>The short version</h2>
+  <ul>
+    <li><strong>There is no Recipient Guard server.</strong> The add-in has no
+    backend of its own. It does not send your data to us or to any third party.</li>
+    <li>All recipient analysis runs <strong>locally</strong>, inside Outlook, on
+    your device.</li>
+    <li>The only data the add-in stores is a small list of your frequent contacts
+    and your chosen exceptions, kept <strong>inside your own Microsoft 365
+    mailbox</strong>.</li>
+  </ul>
+
+  <h2>What the add-in accesses</h2>
+  <ul>
+    <li><strong>Recipients of the message you are composing</strong> (To, Cc, Bcc)
+    and their email addresses and display names — read at send time to check for a
+    likely wrong recipient.</li>
+    <li><strong>Your Microsoft 365 profile</strong> (Microsoft Graph
+    <code>User.Read</code>) — to determine your own email address and organisation
+    domain, so internal recipients aren't flagged as external.</li>
+    <li><strong>Your frequently-contacted people</strong> (Microsoft Graph
+    <code>People.Read</code>) — the display names and email addresses of people you
+    email often, used to recognise when a recipient differs from the address you
+    normally use for that person. This is requested only when you turn on
+    <em>Smart detection</em>, and Microsoft asks for your consent first.</li>
+  </ul>
+
+  <h2>What is stored, and where</h2>
+  <ul>
+    <li>A compact list of your frequent contacts (name + email) is cached in
+    <strong>Office roaming settings</strong>, which are stored within your own
+    Microsoft 365 mailbox by Microsoft. It never leaves your Microsoft 365
+    environment.</li>
+    <li>Addresses you mark as <em>"Don't warn about this address"</em> (your
+    whitelist) are stored the same way.</li>
+    <li>The add-in keeps no logs and performs no analytics or tracking.</li>
+  </ul>
+
+  <h2>What is <em>not</em> done</h2>
+  <ul>
+    <li>Message bodies and attachments are never read.</li>
+    <li>No recipient data, contact data, or message content is transmitted to the
+    developer or any third party.</li>
+    <li>Your information is never sold, shared, or used for advertising.</li>
+  </ul>
+
+  <h2>Data controlled by Microsoft</h2>
+  <p>The add-in runs inside Microsoft Outlook and uses Microsoft Graph and Office
+  storage. Microsoft's handling of that data is governed by the
+  <a href="https://privacy.microsoft.com/privacystatement">Microsoft Privacy
+  Statement</a>. You can review or revoke the permissions you granted at
+  <a href="https://myapps.microsoft.com">myapps.microsoft.com</a>.</p>
+
+  <h2>Retention and removal</h2>
+  <p>The cached contact list and whitelist remain in your mailbox's roaming
+  settings until you remove the add-in or clear its settings. Removing the add-in
+  stops all access; revoking consent at myapps.microsoft.com ends the Graph
+  permissions.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:support@recipientguard.co.uk">support@recipientguard.co.uk</a>.</p>
+</body>
+</html>

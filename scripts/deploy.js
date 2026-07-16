@@ -47,6 +47,9 @@ fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
 SRC_FILES.forEach((f) => fs.copyFileSync(path.join(root, "src", f), path.join(dist, "src", f)));
 fs.copyFileSync(path.join(root, "assets", "icon.jpg"), path.join(dist, "assets", "icon.jpg"));
 fs.writeFileSync(path.join(dist, "index.html"), INDEX_HTML);
+// Public legal/support pages (served at the site root for AppSource + consent).
+["privacy.html", "terms.html", "support.html"].forEach((f) =>
+  fs.copyFileSync(path.join(root, "site", f), path.join(dist, f)));
 
 console.log("3/4  clearing stale blobs in " + CONTAINER + "...");
 az(["storage", "blob", "delete-batch", "--account-name", ACCOUNT, "--auth-mode", "key",

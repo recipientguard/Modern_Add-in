@@ -5,13 +5,13 @@
            xsi:type="MailApp">
   <Id>2fbbe8b8-59cf-458e-8ba1-2bb45e1eed58</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Recipient Guard</ProviderName>
+  <ProviderName>RecipientGuard Ltd</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Recipient Guard" />
   <Description DefaultValue="Warns you before sending to a likely wrong recipient picked from AutoComplete." />
   <IconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
   <HighResolutionIconUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/assets/icon.jpg" />
-  <SupportUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/src/taskpane.html" />
+  <SupportUrl DefaultValue="https://rgoutlookpoc0618.z33.web.core.windows.net/support.html" />
   <AppDomains>
     <AppDomain>https://rgoutlookpoc0618.z33.web.core.windows.net</AppDomain>
   </AppDomains>
