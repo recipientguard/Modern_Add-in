@@ -123,6 +123,34 @@ is the hero.
 Use plausible-but-fake names (e.g. *John Doe*, `john.doe@gmail.com` vs
 `john.doe@acme.com`). **Don't show real customer addresses.**
 
+### ⚠️ Capture in the RecipientGuard tenant, not iteam
+The existing dev screenshots are full of real addresses (`fynn.hodder@gmail.com`,
+`fhodder@vg.je`, `fynn@iteam.je`). None of that should appear on a public store page.
+Use the RecipientGuard test tenant with invented users.
+
+### How to stage them (the useful bit)
+
+**The Smart Alert fires BEFORE the message sends.** So you can type completely fake,
+non-existent addresses, hit **Send**, screenshot the dialog, then click **Don't send** —
+nothing is sent, nothing bounces, and no fake mailboxes are needed.
+
+That covers shots 2, 3, 5 and the external case with pure invention. **No setup at all.**
+
+**The exception is the hero shot.** *"You don't usually email this address"* comes from
+Microsoft Graph `/me/people`, so it only fires against genuine contact history — typing an
+address can't fake it. Stage it once in the RecipientGuard tenant:
+
+1. Create a user **John Doe** → `john.doe@recipientguard.co.uk`
+2. Send them **2–3 emails** (this is what builds `/me/people` history)
+3. Task pane → **Refresh contacts** (pulls John Doe into the cached known list)
+4. Compose to **`john.doe@gmail.com`** → **Send**
+
+→ same username, different domain, matched against a known contact → the add-in flags
+*"You don't usually email this address."* Authentic behaviour, entirely fake data.
+
+Once that history exists, the hero and the review/delay shots can all be taken from that
+same compose window.
+
 1. **HERO — the send-time warning.** The grey "Recipient Guard paused this send" dialog
    over a compose window, showing the recipient list with one flagged
    ("You don't usually email this address") and the **Send anyway / Take action /
