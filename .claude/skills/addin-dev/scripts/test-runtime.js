@@ -102,26 +102,29 @@ Promise.resolve()
   // known-identity (history) checks — the single-wrong-recipient case
   .then(function () {
     return run("single wrong recipient vs known -> block (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "You don't usually email", null,
+      { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")] }, false, "You usually use", null,
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     // Product decision: flag even when the recipient's own address is known, if
     // the prefix/name resolves to ANOTHER known address.
-    return run("known recipient with another known same-prefix -> flags (you usually reach)",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "You don't usually email", null,
+    // Wording matters here: the recipient IS a known contact, so claiming "you
+    // don't usually email this address" would be false. It must say "You ALSO
+    // use ..." — the name simply resolves to more than one address they use.
+    return run("known recipient with another known same-prefix -> 'You also use' (not 'usually')",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "You also use", "You usually use",
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com"), knownRec("Fynn Hodder", "fynn.hodder@iteam.je")]);
   })
   .then(function () {
     // But a lone known contact with no same-prefix alternative is NOT flagged as
     // a wrong recipient (only external, since gmail != internal).
     return run("lone known recipient, no alternative -> external only",
-      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "Outside your organisation", "You don't usually email",
+      { to: [r("Fynn Hodder", "fynn.hodder@gmail.com")] }, false, "Outside your organisation", "You usually use",
       [knownRec("Fynn Hodder", "fynn.hodder@gmail.com")]);
   })
   .then(function () {
     return run("no known list -> known checks silent (external only)",
-      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "Outside your organisation", "You don't usually email", []);
+      { to: [r("Someone", "someone@onecollab.co.uk")] }, false, "Outside your organisation", "You usually use", []);
   })
   // --- whitelist: a whitelisted address stops producing any risk ---
   .then(function () {
@@ -146,7 +149,7 @@ Promise.resolve()
     return new Promise(function (resolve) {
       handler({ completed: function (result) { resolve(result); } });
     }).then(function (result) {
-      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("You don't usually email") !== -1;
+      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("You usually use") !== -1;
       if (!ok) failures++;
       console.log((ok ? "PASS " : "FAIL ") + "unrelated whitelist entry -> still blocks the real wrong recipient");
     });

@@ -161,7 +161,7 @@ function buildDialogRecipients(risks, recipients) {
   const RG = window.RecipientGuardPoc;
   const noteByEmail = Object.create(null);
   risks.forEach((risk) => {
-    const note = RG.noteForRule(risk.ruleId);
+    const note = RG.noteForRisk(risk);
     if (!note) return;
     (risk.emails || []).forEach((email) => {
       if (!noteByEmail[email]) noteByEmail[email] = note; // first (strongest) wins; condense() prevents overlap
@@ -238,7 +238,7 @@ function safeCloseReviewDialog(dialog) {
 function describeRisk(risk) {
   const RG = window.RecipientGuardPoc;
   let title;
-  let detail = RG.noteForRule(risk.ruleId);
+  let detail = RG.noteForRisk(risk);
   let whitelistEmail = null;
   if (risk.ruleId === "known_alternative") {
     title = "Possibly wrong recipient: " + risk.emails[0];

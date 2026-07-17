@@ -376,10 +376,16 @@
         return { email: email, byName: altReasons[email].name, byPrefix: altReasons[email].prefix };
       });
       if (alternatives.length > 0) {
+        // Is the recipient's OWN address one we already know? If so the flag isn't
+        // "you don't email this person" — it's "this name resolves to several
+        // addresses you use, check you picked the right one". The wording differs,
+        // so record which case this is.
+        var recipientIsKnown = knownIdentities.some(function (k) { return k.e === recipient.email; });
         risks.push({
           ruleId: "known_alternative",
           severity: "high",
           emails: [recipient.email],
+          recipientIsKnown: recipientIsKnown,
           alternatives: alternatives
         });
       }
@@ -419,11 +425,27 @@
 
   // Shared reason wording for a flagged recipient — used by the send-time alert,
   // the review dialog, and the pane so every surface explains a flag identically.
-  function noteForRule(ruleId) {
-    if (ruleId === "known_alternative") return "You don't usually email this address";
-    if (ruleId === "same_display_name") return "Shares a display name with another recipient";
-    if (ruleId === "same_localpart_different_domain") return "Same username as another recipient";
-    if (ruleId === "external_domain") return "Outside your organisation";
+  //
+  // For known_alternative we name ONE alternative (the highest-ranked match, since
+  // /me/people is relevance-ordered) rather than listing them all — the full list
+  // was too noisy, but a bare reason carried no meaning. Wording depends on whether
+  // the recipient's own address is already known:
+  //   not known -> "You usually use x@y"      (they've probably picked the wrong one)
+  //   known     -> "You also use x@y"         (the name has several addresses; which is right?)
+  // Saying "you don't usually email this address" about an address that IS in their
+  // contacts is simply false, and reads as a broken warning.
+  function noteForRisk(risk) {
+    if (!risk) return "";
+    if (risk.ruleId === "known_alternative") {
+      var alts = risk.alternatives || [];
+      if (alts.length === 0) return "You don't usually email this address";
+      var note = (risk.recipientIsKnown ? "You also use " : "You usually use ") + alts[0].email;
+      if (alts.length > 1) note += " (+" + (alts.length - 1) + " more)";
+      return note;
+    }
+    if (risk.ruleId === "same_display_name") return "Shares a display name with another recipient";
+    if (risk.ruleId === "same_localpart_different_domain") return "Same username as another recipient";
+    if (risk.ruleId === "external_domain") return "Outside your organisation";
     return "";
   }
 
@@ -440,7 +462,7 @@
     var noteByEmail = Object.create(null);
     var order = [];
     risks.forEach(function (risk) {
-      var note = noteForRule(risk.ruleId);
+      var note = noteForRisk(risk);
       if (!note) return;
       (risk.emails || []).forEach(function (email) {
         if (!noteByEmail[email]) { noteByEmail[email] = note; order.push(email); }
