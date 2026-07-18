@@ -61,7 +61,10 @@ function setKnown(records) {
 }
 function setWhitelist(emails) {
   ROAMING["recipientGuard.whitelist.v1"] =
-    emails && emails.length ? { at: Date.now(), emails: emails } : undefined;
+    emails && emails.length ? { at: Date.now(), emails: emails, domains: [] } : undefined;
+}
+function setWhitelistDomains(domains) {
+  ROAMING["recipientGuard.whitelist.v1"] = { at: Date.now(), emails: [], domains: domains || [] };
 }
 function setBypass(ageMs) {
   ROAMING["recipientGuard.bypassOnce.v1"] = { at: Date.now() - (ageMs || 0) };
@@ -140,6 +143,34 @@ Promise.resolve()
       console.log((ok ? "PASS " : "FAIL ") + "whitelisted external recipient -> allow (no risk)");
     });
   })
+  // --- domain whitelist: a whitelisted DOMAIN clears every recipient on it ---
+  .then(function () {
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [r("Sue", "sue@client.com")], bcc: [] };
+    setKnown([]);
+    setWhitelistDomains(["client.com"]);
+    ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === true; // whole domain trusted -> both external recips allowed
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "domain-whitelisted -> allow (all recipients on that domain)");
+    });
+  })
+  .then(function () {
+    // A domain whitelist for one domain must NOT trust a recipient on another.
+    RECIPS = { to: [r("Bob", "bob@client.com")], cc: [], bcc: [] };
+    setKnown([]);
+    setWhitelistDomains(["partner.com"]);
+    ROAMING["recipientGuard.bypassOnce.v1"] = undefined;
+    return new Promise(function (resolve) {
+      handler({ completed: function (result) { resolve(result); } });
+    }).then(function (result) {
+      var ok = result.allowEvent === false && (result.errorMessage || "").indexOf("Outside your organisation") !== -1;
+      if (!ok) failures++;
+      console.log((ok ? "PASS " : "FAIL ") + "domain whitelist is domain-specific (other domains still flag)");
+    });
+  })
   .then(function () {
     // Whitelisting the wrong address still flags a DIFFERENT wrong recipient.
     RECIPS = { to: [r("Fynn Hodder", "fynn.hodder@onecollab.co.uk")], cc: [], bcc: [] };
@@ -204,6 +235,36 @@ Promise.resolve()
       if (!parsed || !parsed.risks || parsed.risks.length === 0) ok = false;
       if (!ok) failures++;
       console.log((ok ? "PASS " : "FAIL ") + "block carries commandId + contextData for the review pane");
+    });
+  })
+  // --- public-domain guard: you must NOT be able to whitelist a whole consumer
+  //     domain (that would blind the tool to personal-address mistakes). ---
+  .then(function () {
+    // Load the task-pane core (exposes RecipientGuardPoc on globalThis in node).
+    require(path.join(repoRoot, "src", "recipientGuardCore.js"));
+    var RG = globalThis.RecipientGuardPoc;
+    setWhitelist([]); // clear
+    var ok = RG.isPublicDomain("gmail.com") === true &&
+             RG.isPublicDomain("outlook.com") === true &&
+             RG.isPublicDomain("acme.com") === false;
+    if (!ok) failures++;
+    console.log((ok ? "PASS " : "FAIL ") + "isPublicDomain flags consumer domains, not real ones");
+
+    return RG.addDomainToWhitelist("gmail.com").then(function () {
+      var blocked = RG.readWhitelist().domains.indexOf("gmail.com") === -1;
+      if (!blocked) failures++;
+      console.log((blocked ? "PASS " : "FAIL ") + "addDomainToWhitelist REFUSES a public domain (gmail.com)");
+      return RG.addDomainToWhitelist("acme.com");
+    }).then(function () {
+      var added = RG.readWhitelist().domains.indexOf("acme.com") !== -1;
+      if (!added) failures++;
+      console.log((added ? "PASS " : "FAIL ") + "addDomainToWhitelist allows a real domain (acme.com)");
+      return RG.removeFromWhitelist("acme.com");
+    }).then(function () {
+      var removed = RG.readWhitelist().domains.indexOf("acme.com") === -1;
+      if (!removed) failures++;
+      console.log((removed ? "PASS " : "FAIL ") + "removeFromWhitelist removes an entry");
+      setWhitelist([]);
     });
   })
   .then(function () {

@@ -54,8 +54,9 @@ Publisher: **RecipientGuard Ltd**. Free add-in, no in-app purchases.
 > - **Review before sending** — see every recipient, with the risky one highlighted.
 > - **Delay 1 minute & send** — a cooling-off window with a cancel button, for when you
 >   want a second look.
-> - **Don't warn about this address** — whitelist an address you email deliberately, and
->   it stops asking.
+> - **Don't warn about this address** — whitelist an address, or a whole trusted domain
+>   (public webmail domains like gmail.com are deliberately excluded), and it stops asking.
+>   Manage and remove trusted entries any time from the pane.
 > - **Smart detection** — optionally learns who you usually email (from your Microsoft 365
 >   frequent contacts) so it can spot a single wrong recipient. One click to enable.
 >

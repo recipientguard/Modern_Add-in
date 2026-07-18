@@ -256,46 +256,109 @@
     });
   }
 
-  // --- whitelist (per-address "don't warn about this again") ---
+  // --- whitelist (per-address AND per-domain "don't warn about this") ---
   //
   // Stored in roamingSettings so BOTH the task pane and the send-event runtime see
-  // it. A whitelisted address is dropped from the analysis input, so it stops
-  // producing any risk (external / known-alternative / group) and also stops
-  // contributing to another recipient's group comparison.
+  // it. Shape: { at, emails: [...], domains: [...] }. A recipient is whitelisted if
+  // its address is in `emails` OR its domain is in `domains`; whitelisted recipients
+  // are dropped from the analysis input, so they stop producing any risk and stop
+  // contributing to another recipient's group comparison. A domain entry is the
+  // clean way to trust a whole partner org — or a second internal domain, which
+  // also sidesteps the single-internal-domain limitation.
+  //
+  // Backward compatible: older data was { at, emails } with no domains.
+
+  function normalizeDomain(value) {
+    var v = (value || "").trim().toLowerCase();
+    var at = v.lastIndexOf("@");
+    if (at !== -1) v = v.slice(at + 1); // tolerate "user@acme.com" or "@acme.com"
+    return v;
+  }
+
+  // Public / consumer mail domains must NEVER be domain-whitelisted — trusting the
+  // whole of gmail.com would blind the add-in to exactly the personal-address
+  // mistakes it exists to catch. The UI hides the "trust this domain" action for
+  // these, and addDomainToWhitelist refuses them as a backstop; per-ADDRESS
+  // whitelisting still works.
+  var PUBLIC_EMAIL_DOMAINS = Object.create(null);
+  [
+    "gmail.com", "googlemail.com",
+    "outlook.com", "outlook.co.uk", "hotmail.com", "hotmail.co.uk", "live.com",
+    "live.co.uk", "msn.com",
+    "yahoo.com", "yahoo.co.uk", "ymail.com", "rocketmail.com",
+    "icloud.com", "me.com", "mac.com",
+    "aol.com", "gmx.com", "gmx.net", "mail.com",
+    "proton.me", "protonmail.com", "pm.me",
+    "zoho.com", "yandex.com", "yandex.ru", "qq.com", "163.com", "126.com"
+  ].forEach(function (d) { PUBLIC_EMAIL_DOMAINS[d] = true; });
+
+  function isPublicDomain(domain) {
+    return Boolean(PUBLIC_EMAIL_DOMAINS[normalizeDomain(domain)]);
+  }
 
   function readWhitelist() {
     try {
       var rs = Office.context.roamingSettings;
-      if (!rs || typeof rs.get !== "function") return [];
-      var stored = rs.get(WHITELIST_KEY);
-      return (stored && stored.emails) || [];
+      if (!rs || typeof rs.get !== "function") return { emails: [], domains: [] };
+      var stored = rs.get(WHITELIST_KEY) || {};
+      return { emails: stored.emails || [], domains: stored.domains || [] };
     } catch (e) {
-      return [];
+      return { emails: [], domains: [] };
     }
   }
 
-  function isWhitelisted(email, whitelist) {
-    return (whitelist || []).indexOf(normalizeEmail(email)) !== -1;
-  }
-
-  function addToWhitelist(email) {
+  function writeWhitelist(wl) {
     return new Promise(function (resolve) {
+      var value = { at: Date.now(), emails: (wl && wl.emails) || [], domains: (wl && wl.domains) || [] };
       try {
         var rs = Office.context.roamingSettings;
-        var current = readWhitelist();
-        var e = normalizeEmail(email);
-        if (current.indexOf(e) === -1) current = current.concat([e]);
-        rs.set(WHITELIST_KEY, { at: Date.now(), emails: current });
-        rs.saveAsync(function () { resolve(current); });
-      } catch (err) {
+        rs.set(WHITELIST_KEY, value);
+        rs.saveAsync(function () { resolve(value); });
+      } catch (e) {
         resolve(readWhitelist());
       }
     });
   }
 
+  function isWhitelisted(email, whitelist) {
+    var wl = whitelist || { emails: [], domains: [] };
+    var e = normalizeEmail(email);
+    if ((wl.emails || []).indexOf(e) !== -1) return true;
+    var d = getDomain(e);
+    return Boolean(d) && (wl.domains || []).indexOf(d) !== -1;
+  }
+
+  function addToWhitelist(email) {
+    var wl = readWhitelist();
+    var e = normalizeEmail(email);
+    if (e && wl.emails.indexOf(e) === -1) wl.emails = wl.emails.concat([e]);
+    return writeWhitelist(wl);
+  }
+
+  function addDomainToWhitelist(domain) {
+    var wl = readWhitelist();
+    var d = normalizeDomain(domain);
+    // Never allow a public/consumer domain, even if the UI somehow asked.
+    if (d && !isPublicDomain(d) && wl.domains.indexOf(d) === -1) {
+      wl.domains = wl.domains.concat([d]);
+    }
+    return writeWhitelist(wl);
+  }
+
+  // Remove an entry from either list (used by the pane's manage view). Matches a
+  // bare address or domain string.
+  function removeFromWhitelist(value) {
+    var wl = readWhitelist();
+    var v = (value || "").trim().toLowerCase();
+    wl.emails = wl.emails.filter(function (x) { return x !== v; });
+    wl.domains = wl.domains.filter(function (x) { return x !== v; });
+    return writeWhitelist(wl);
+  }
+
   function excludeWhitelisted(recipients, whitelist) {
-    if (!whitelist || whitelist.length === 0) return recipients;
-    return recipients.filter(function (r) { return !isWhitelisted(r.email, whitelist); });
+    var wl = whitelist || { emails: [], domains: [] };
+    if ((wl.emails || []).length === 0 && (wl.domains || []).length === 0) return recipients;
+    return recipients.filter(function (r) { return !isWhitelisted(r.email, wl); });
   }
 
   // --- one-shot send bypass (pane "send now" past a block) ---
@@ -554,10 +617,13 @@
     toKnownRecord: toKnownRecord,
     readKnownIdentities: readKnownIdentities,
     writeKnownIdentities: writeKnownIdentities,
-    // whitelist (per-address "don't warn again")
+    // whitelist (per-address + per-domain "don't warn again")
     readWhitelist: readWhitelist,
     isWhitelisted: isWhitelisted,
     addToWhitelist: addToWhitelist,
+    addDomainToWhitelist: addDomainToWhitelist,
+    removeFromWhitelist: removeFromWhitelist,
+    isPublicDomain: isPublicDomain,
     // one-shot send bypass (pane "send now")
     setSendBypass: setSendBypass,
     clearSendBypass: clearSendBypass,

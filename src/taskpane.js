@@ -4,6 +4,7 @@ Office.onReady(() => {
   renderMailbox();
   renderReviewFromContext();
   renderAnalysis();
+  renderWhitelist();
   registerRecipientChangeHandler();
 
   const peopleButton = document.getElementById("loadPeopleButton");
@@ -140,7 +141,7 @@ let reviewDialog = null;
 function openReviewDialog() {
   const ui = Office.context.ui;
   if (!ui || typeof ui.displayDialogAsync !== "function") return; // inline panel is the fallback
-  const url = window.location.origin + "/src/review-dialog.html?v=20260714-9";
+  const url = window.location.origin + "/src/review-dialog.html?v=20260718-1";
   // One recipient-centric list: every recipient, flagged ones annotated inline.
   const recipientsPromise = window.RecipientGuardPoc.analyzeCurrentMessage()
     .then((a) => buildDialogRecipients(a.risks || [], a.recipients || []))
@@ -167,13 +168,18 @@ function buildDialogRecipients(risks, recipients) {
       if (!noteByEmail[email]) noteByEmail[email] = note; // first (strongest) wins; condense() prevents overlap
     });
   });
-  return recipients.map((r) => ({
-    email: r.email,
-    type: r.type,
-    flagged: Boolean(noteByEmail[r.email]),
-    note: noteByEmail[r.email] || null,
-    whitelistEmail: noteByEmail[r.email] ? r.email : null
-  }));
+  return recipients.map((r) => {
+    const flagged = Boolean(noteByEmail[r.email]);
+    const dom = RG.getDomain(r.email);
+    return {
+      email: r.email,
+      type: r.type,
+      flagged: flagged,
+      note: noteByEmail[r.email] || null,
+      whitelistEmail: flagged ? r.email : null,
+      whitelistDomain: (flagged && dom && !RG.isPublicDomain(dom)) ? dom : null
+    };
+  });
 }
 
 function handleDialogMessage(dialog, recipientsPromise, raw) {
@@ -201,8 +207,19 @@ function handleDialogMessage(dialog, recipientsPromise, raw) {
   } else if (msg.action === "whitelist") {
     RG.addToWhitelist(msg.email).then(() => {
       renderAnalysis();
+      renderWhitelist();
       try {
         dialog.messageChild(JSON.stringify({ type: "whitelisted", email: msg.email }));
+      } catch (error) {
+        /* no ack channel — the pane list still refreshed */
+      }
+    });
+  } else if (msg.action === "whitelistDomain") {
+    RG.addDomainToWhitelist(msg.domain).then(() => {
+      renderAnalysis();
+      renderWhitelist();
+      try {
+        dialog.messageChild(JSON.stringify({ type: "whitelisted", domain: msg.domain }));
       } catch (error) {
         /* no ack channel — the pane list still refreshed */
       }
@@ -253,7 +270,14 @@ function describeRisk(risk) {
     title = "External recipient: " + (risk.emails || [])[0];
     whitelistEmail = (risk.emails || [])[0];
   }
-  return { title, detail, whitelistEmail };
+  // Offer a domain-whitelist only for a non-public domain — trusting the whole of
+  // gmail.com etc. would defeat the tool, so those get address-only.
+  let whitelistDomain = null;
+  if (whitelistEmail) {
+    const dom = RG.getDomain(whitelistEmail);
+    if (dom && !RG.isPublicDomain(dom)) whitelistDomain = dom;
+  }
+  return { title, detail, whitelistEmail, whitelistDomain };
 }
 
 // Build one flagged-recipient row. Shared by the live "Check recipients" list
@@ -272,26 +296,102 @@ function buildRiskRow(risk) {
   meta.textContent = d.detail;
   row.appendChild(meta);
 
-  if (d.whitelistEmail) row.appendChild(buildWhitelistButton(d.whitelistEmail, row, meta));
+  if (d.whitelistEmail) {
+    row.appendChild(buildWhitelistActions(d.whitelistEmail, d.whitelistDomain, row, meta));
+  }
   return row;
 }
 
-// "Don't warn about this address again" — writes to the whitelist (shared with
-// the send handler), reflects it in the row, and refreshes the live list.
-function buildWhitelistButton(email, row, meta) {
-  const link = document.createElement("button");
-  link.type = "button";
-  link.className = "linklike";
-  link.textContent = "Don't warn about this address";
-  link.addEventListener("click", async () => {
-    link.disabled = true;
-    await window.RecipientGuardPoc.addToWhitelist(email);
-    row.className = "recipient whitelisted";
-    meta.textContent = "Whitelisted — won't warn about " + email + " again";
-    link.remove();
-    renderAnalysis();
+function linklike(text, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "linklike";
+  b.textContent = text;
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function markWhitelistedRow(row, meta, message) {
+  row.className = "recipient whitelisted";
+  meta.textContent = "Whitelisted — " + message;
+  const actions = row.querySelector(".wl-actions");
+  if (actions) actions.remove();
+}
+
+// Whitelist actions for a flagged row: always the safe per-ADDRESS option; the
+// per-DOMAIN option only when the domain isn't public, and gated behind an inline
+// "trust everyone at X?" confirm because it's a much broader action.
+function buildWhitelistActions(email, domain, row, meta) {
+  const RG = window.RecipientGuardPoc;
+  const actions = document.createElement("div");
+  actions.className = "wl-actions";
+
+  function renderNormal() {
+    actions.innerHTML = "";
+    actions.appendChild(linklike("Don't warn about this address", async () => {
+      await RG.addToWhitelist(email);
+      markWhitelistedRow(row, meta, "won't warn about " + email + " again");
+      renderAnalysis();
+      renderWhitelist();
+    }));
+    if (domain) {
+      actions.appendChild(linklike("Don't warn about anyone at " + domain, renderConfirm));
+    }
+  }
+
+  function renderConfirm() {
+    actions.innerHTML = "";
+    const q = document.createElement("span");
+    q.className = "muted";
+    q.textContent = "Trust everyone at " + domain + "? ";
+    actions.appendChild(q);
+    actions.appendChild(linklike("Trust domain", async () => {
+      await RG.addDomainToWhitelist(domain);
+      markWhitelistedRow(row, meta, "won't warn about anyone at " + domain);
+      renderAnalysis();
+      renderWhitelist();
+    }));
+    actions.appendChild(linklike("Cancel", renderNormal));
+  }
+
+  renderNormal();
+  return actions;
+}
+
+// The "Trusted addresses & domains" manage view — the ONLY place to remove a
+// whitelist entry (there was previously no way to un-whitelist). Add is
+// contextual-only (from a flagged recipient), so no free-text domain box exists
+// that could trust an unseen or public domain.
+function renderWhitelist() {
+  const container = document.getElementById("whitelistManage");
+  if (!container) return;
+  const RG = window.RecipientGuardPoc;
+  const wl = RG.readWhitelist();
+  const entries = (wl.domains || []).map((d) => ({ value: d, label: "Anyone at " + d }))
+    .concat((wl.emails || []).map((e) => ({ value: e, label: e })));
+
+  container.innerHTML = "";
+  if (entries.length === 0) {
+    const none = document.createElement("div");
+    none.className = "muted";
+    none.textContent = "Nothing trusted yet. Use “Don't warn…” on a flagged recipient to add one.";
+    container.appendChild(none);
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "wl-row";
+    const label = document.createElement("span");
+    label.textContent = entry.label;
+    row.appendChild(label);
+    row.appendChild(linklike("Remove", async () => {
+      await RG.removeFromWhitelist(entry.value);
+      renderWhitelist();
+      renderAnalysis();
+    }));
+    container.appendChild(row);
   });
-  return link;
 }
 
 // Load the MSAL/NAA bundle on demand (it's ~652 KB, so we keep it off the

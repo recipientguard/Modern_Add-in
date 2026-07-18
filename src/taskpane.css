@@ -175,6 +175,30 @@ button.linklike:hover {
   color: #115ea3;
 }
 
+/* Whitelist actions under a flagged recipient (address link, domain link, and
+   the inline "trust everyone at X?" confirm) — wrap tidily on narrow panes. */
+.wl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  margin-top: 4px;
+}
+
+/* Trusted addresses & domains manage list — each entry removable. */
+.wl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0eeec;
+}
+
+.wl-row:last-child {
+  border-bottom: none;
+}
+
 button.secondary {
   border: 1px solid #8a8886;
   background: #ffffff;

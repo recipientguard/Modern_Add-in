@@ -38,10 +38,13 @@ globalScope.RecipientGuardPoc = {
   toKnownRecord: toKnownRecord,
   readKnownIdentities: readKnownIdentities,
   writeKnownIdentities: writeKnownIdentities,
-  // whitelist (per-address "don't warn again")
+  // whitelist (per-address + per-domain "don't warn again")
   readWhitelist: readWhitelist,
   isWhitelisted: isWhitelisted,
   addToWhitelist: addToWhitelist,
+  addDomainToWhitelist: addDomainToWhitelist,
+  removeFromWhitelist: removeFromWhitelist,
+  isPublicDomain: isPublicDomain,
   // one-shot send bypass (pane "send now")
   setSendBypass: setSendBypass,
   clearSendBypass: clearSendBypass,

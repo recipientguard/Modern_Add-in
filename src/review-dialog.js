@@ -8,8 +8,8 @@
 (function () {
   "use strict";
 
-  // The full recipient list (each annotated with flagged/note), cached so the
-  // delay view can reuse it and Cancel can restore the review view.
+  // The full recipient list (each annotated with flagged/note/whitelist targets),
+  // cached so the delay view can reuse it and Cancel can restore the review view.
   var state = { recipients: [] };
   var countdownTimer = null;
 
@@ -44,7 +44,8 @@
       state.recipients = msg.recipients || [];
       renderReview();
     } else if (msg.type === "whitelisted") {
-      markWhitelisted(msg.email);
+      if (msg.domain) markWhitelistedByDomain(msg.domain);
+      else if (msg.email) markWhitelistedByEmail(msg.email);
     }
   }
 
@@ -69,7 +70,7 @@
   }
 
   // Shared recipient list. showFlags=true annotates flagged recipients with a
-  // reason + whitelist link; false renders a plain "who it's going to" list.
+  // reason + whitelist actions; false renders a plain "who it's going to" list.
   function buildRecipientList(recipients, showFlags) {
     var list = document.createElement("div");
     list.className = "recipient-list";
@@ -102,17 +103,8 @@
         note.className = "flag-note";
         note.textContent = rcpt.note || "Possibly the wrong recipient";
         row.appendChild(note);
-
         if (rcpt.whitelistEmail) {
-          var wl = document.createElement("button");
-          wl.type = "button";
-          wl.className = "linklike";
-          wl.textContent = "Don't warn about this address";
-          wl.addEventListener("click", function () {
-            wl.disabled = true;
-            post({ action: "whitelist", email: rcpt.whitelistEmail });
-          });
-          row.appendChild(wl);
+          row.appendChild(buildWhitelistActions(rcpt.whitelistEmail, rcpt.whitelistDomain));
         }
       }
       list.appendChild(row);
@@ -120,15 +112,70 @@
     return list;
   }
 
-  function markWhitelisted(email) {
+  function linklike(text, onClick) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "linklike";
+    b.textContent = text;
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // Whitelist actions: always the safe per-address option; the per-domain option
+  // only when the domain isn't public (parent filtered those out), gated behind an
+  // inline "trust everyone at X?" confirm. Actions post to the parent; the parent's
+  // ack (markWhitelisted*) clears the affected row(s).
+  function buildWhitelistActions(email, domain) {
+    var actions = document.createElement("div");
+    actions.className = "wl-actions";
+
+    function renderNormal() {
+      actions.innerHTML = "";
+      actions.appendChild(linklike("Don't warn about this address", function () {
+        post({ action: "whitelist", email: email });
+      }));
+      if (domain) {
+        actions.appendChild(linklike("Don't warn about anyone at " + domain, renderConfirm));
+      }
+    }
+
+    function renderConfirm() {
+      actions.innerHTML = "";
+      var q = document.createElement("span");
+      q.className = "muted";
+      q.textContent = "Trust everyone at " + domain + "? ";
+      actions.appendChild(q);
+      actions.appendChild(linklike("Trust domain", function () {
+        post({ action: "whitelistDomain", domain: domain });
+      }));
+      actions.appendChild(linklike("Cancel", renderNormal));
+    }
+
+    renderNormal();
+    return actions;
+  }
+
+  function clearFlag(row) {
+    row.className = "recipient";
+    var note = row.querySelector(".flag-note");
+    if (note) note.parentNode.removeChild(note);
+    var actions = row.querySelector(".wl-actions");
+    if (actions) actions.parentNode.removeChild(actions);
+  }
+
+  function markWhitelistedByEmail(email) {
     var rows = document.querySelectorAll(".recipient[data-email]");
     for (var i = 0; i < rows.length; i++) {
-      if (rows[i].getAttribute("data-email") !== email) continue;
-      rows[i].className = "recipient";
-      var note = rows[i].querySelector(".flag-note");
-      if (note) note.parentNode.removeChild(note);
-      var btn = rows[i].querySelector("button.linklike");
-      if (btn) btn.parentNode.removeChild(btn);
+      if (rows[i].getAttribute("data-email") === email) clearFlag(rows[i]);
+    }
+  }
+
+  function markWhitelistedByDomain(domain) {
+    var suffix = "@" + domain;
+    var rows = document.querySelectorAll(".recipient[data-email]");
+    for (var i = 0; i < rows.length; i++) {
+      var e = rows[i].getAttribute("data-email") || "";
+      if (e.slice(-suffix.length) === suffix) clearFlag(rows[i]);
     }
   }
 
