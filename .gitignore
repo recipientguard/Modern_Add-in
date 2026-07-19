@@ -17,3 +17,7 @@ dist/
 
 # Marketing site build folder
 dist-site/
+
+# Listing screenshots + raw captures (contain a real inbox; not code)
+image-*.webp
+listing-shots/

@@ -15,7 +15,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SWA_NAME = "recipientguard-site";
-const RESOURCE_GROUP = "recipientguard-rg";
+const RESOURCE_GROUP = "rg-recipient-guard-prd";
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist-site");
 
