@@ -532,16 +532,17 @@
       });
     });
 
-    var lines = ["Recipient Guard paused this send. Please check the recipients are correct.", "", "This message will be sent to:"];
-
-    // List EVERY recipient (matching the review dialog), flagged ones annotated.
-    // Fall back to just the flagged addresses if the recipient list is unavailable.
+    // Section 1 — WHO it's going to: addresses only, no reasons, so the recipient
+    // is easy to read at a glance. The grey dialog is plain text (no bold), so the
+    // clean list + the separate "Check" section below is how we build hierarchy.
+    // List EVERY recipient; fall back to the flagged addresses if the full list is
+    // unavailable.
+    var lines = ["Recipient Guard paused this send.", "", "Sending to:"];
     var list = (recipients && recipients.length) ? recipients : null;
     if (list) {
       list.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (r) {
         var t = formatRecipientType(r.type);
-        lines.push("  " + r.email + (t ? "  (" + t + ")" : ""));
-        if (noteByEmail[r.email]) lines.push("    " + noteByEmail[r.email]);
+        lines.push("  " + r.email + (t ? "   (" + t + ")" : ""));
       });
       if (list.length > MAX_RECIPIENTS_IN_ALERT) {
         lines.push("  +" + (list.length - MAX_RECIPIENTS_IN_ALERT) + " more");
@@ -549,12 +550,21 @@
     } else {
       order.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (email) {
         lines.push("  " + email);
-        lines.push("    " + noteByEmail[email]);
+      });
+    }
+
+    // Section 2 — WHAT to check: each flagged recipient with its reason underneath.
+    if (order.length) {
+      lines.push("");
+      lines.push(order.length === 1 ? "Check this recipient:" : "Check these recipients:");
+      order.slice(0, MAX_RECIPIENTS_IN_ALERT).forEach(function (email) {
+        lines.push("  " + email);
+        lines.push("  — " + noteByEmail[email]);
       });
     }
 
     lines.push("");
-    lines.push("Choose Take action to review, or Send anyway to send as is.");
+    lines.push("Take action to review, or Send anyway to send as is.");
     return lines.join("\n");
   }
 
@@ -567,6 +577,10 @@
       var out = { ruleId: risk.ruleId, emails: (risk.emails || []).slice(0, MAX_EMAILS_PER_RISK) };
       if (risk.displayName) out.displayName = risk.displayName;
       if (risk.localPart) out.localPart = risk.localPart;
+      // Preserve recipientIsKnown across the Smart Alert -> pane handoff, else the
+      // in-pane review panel loses it and renders "You usually use" while the grey
+      // dialog and the (live-reanalyzed) modal say "You also use" for the same person.
+      if (risk.recipientIsKnown) out.recipientIsKnown = true;
       if (risk.alternatives) {
         out.alternatives = risk.alternatives.slice(0, MAX_EMAILS_PER_RISK).map(function (a) {
           return { email: a.email, byName: a.byName, byPrefix: a.byPrefix };
