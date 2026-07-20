@@ -21,3 +21,5 @@ dist-site/
 # Listing screenshots + raw captures (contain a real inbox; not code)
 image-*.webp
 listing-shots/
+Screenshots/
+recipient_guard_screenshots_*.zip
