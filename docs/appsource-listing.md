@@ -203,8 +203,8 @@ rejection cause:
 > contact list and whitelist are cached in Office roaming settings within the user's own
 > mailbox. No data is transmitted to the publisher or any third party.
 >
-> **Platforms:** Outlook on the web and new Outlook on Windows (Mailbox requirement set
-> 1.15). Support: support@recipientguard.co.uk
+> **Platforms:** Outlook on the web, new Outlook on Windows, and classic Outlook on Windows
+> (Microsoft 365; Mailbox requirement set 1.15). Support: support@recipientguard.co.uk
 
 ---
 
